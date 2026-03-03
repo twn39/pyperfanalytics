@@ -1,6 +1,7 @@
 import pytest
-import pandas as pd
+
 from pyperfanalytics.tables import table_capm, table_downside_risk
+
 
 def test_table_capm(managers_data):
     # Benchmark from R (HAM1 to SP500):
@@ -15,13 +16,13 @@ def test_table_capm(managers_data):
     # Active Premium: 0.0408
     # Information Ratio: 0.3604
     # Treynor Ratio: 0.2428
-    
+
     ra = managers_data['HAM1']
     rb = managers_data['SP500 TR']
     rf = managers_data['US 3m TR']
-    
+
     table = table_capm(ra, rb, Rf=rf)
-    
+
     col = "HAM1 to SP500 TR"
     assert table.loc["Alpha", col] == pytest.approx(0.0058, abs=1e-4)
     assert table.loc["Beta", col] == pytest.approx(0.3901, abs=1e-4)
@@ -45,13 +46,13 @@ def test_table_downside_risk(managers_data):
     # Historical ES (95%): -0.0513
     # Modified VaR (95%): -0.0342
     # Modified ES (95%): -0.0610
-    
+
     ra = managers_data['HAM1']
     rf = managers_data['US 3m TR']
-    
+
     # Note: R benchmark uses MAR=0.1/12
     table = table_downside_risk(ra, Rf=rf, MAR=0.1/12)
-    
+
     col = "HAM1"
     assert table.loc["Semi Deviation", col] == pytest.approx(0.0191, abs=1e-4)
     assert table.loc["Gain Deviation", col] == pytest.approx(0.0169, abs=1e-4)

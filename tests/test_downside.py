@@ -1,5 +1,7 @@
 import pytest
+
 from pyperfanalytics import downside_deviation, sortino_ratio
+
 
 def test_downside_metrics_edhec(edhec_data):
     # Benchmark results from R PerformanceAnalytics
@@ -18,7 +20,7 @@ def test_downside_metrics_edhec(edhec_data):
         "Short Selling": 0.03421968,
         "Funds of Funds": 0.01088799
     }
-    
+
     r_sortino_0 = {
         "Convertible Arbitrage": 0.4358131,
         "CTA Global": 0.4730515,
@@ -34,10 +36,10 @@ def test_downside_metrics_edhec(edhec_data):
         "Short Selling": 0.1216021,
         "Funds of Funds": 0.5435736
     }
-    
+
     py_dd = downside_deviation(edhec_data, MAR=0)
     py_sortino = sortino_ratio(edhec_data, MAR=0)
-    
+
     for asset in r_dd_0.keys():
         assert py_dd[asset] == pytest.approx(r_dd_0[asset], abs=1e-6)
         assert py_sortino[asset] == pytest.approx(r_sortino_0[asset], abs=1e-6)

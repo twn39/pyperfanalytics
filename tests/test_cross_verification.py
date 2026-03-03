@@ -1,7 +1,9 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
+
 import pyperfanalytics as pa
+
 
 @pytest.mark.parametrize("dataset_f, bench_f, asset, rb_key", [
     ("test_data", "r_benchmarks", "AGG", "SPY"),
@@ -20,21 +22,21 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     # The columns from pandas read_csv will keep "BRK-A", but the JSON from R will have "BRK.A".
     asset_col = asset.replace(".", "-")
     bench = request.getfixturevalue(bench_f)
-    
+
     ra = data[asset_col]
     rb = data[rb_key]
     rf = data["BIL"]
     # Extract the R benchmark using the R-mangled json key if needed
     r_key = asset.replace("-", ".")
     bench_data = bench[r_key]
-    
+
     # Tolerances
     tol = 1e-4 # Standard for diverse data comparison
-    
+
     # Returns & Standard Deviation
     assert pa.return_annualized(ra) == pytest.approx(bench_data["Return.annualized"], abs=tol)
     assert pa.std_dev_annualized(ra) == pytest.approx(bench_data["StdDev.annualized"], abs=tol)
-    
+
     # Ratios
     assert pa.sharpe_ratio(ra, Rf=rf, annualize=True) == pytest.approx(bench_data["SharpeRatio"], abs=tol)
     assert pa.sortino_ratio(ra, MAR=rf.mean()) == pytest.approx(bench_data["SortinoRatio"], abs=tol)
@@ -42,20 +44,20 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     assert pa.rachev_ratio(ra) == pytest.approx(bench_data["RachevRatio"], abs=tol)
     assert pa.prospect_ratio(ra, MAR=rf.mean()) == pytest.approx(bench_data["ProspectRatio"], abs=tol)
     assert pa.adjusted_sharpe_ratio(ra) == pytest.approx(bench_data["AdjustedSharpeRatio"], abs=tol)
-    
+
     # Risk (Note: signs aligned with R)
     assert -pa.var_historical(ra, p=0.95) == pytest.approx(bench_data["VaR.Hist"], abs=tol)
     assert -pa.var_gaussian(ra, p=0.95) == pytest.approx(bench_data["VaR.Gaus"], abs=tol)
     assert -pa.var_modified(ra, p=0.95) == pytest.approx(bench_data["VaR.Mod"], abs=tol)
-    
+
     assert -pa.es_historical(ra, p=0.95) == pytest.approx(bench_data["ES.Hist"], abs=tol)
     assert -pa.es_gaussian(ra, p=0.95) == pytest.approx(bench_data["ES.Gaus"], abs=tol)
     assert -pa.es_modified(ra, p=0.95) == pytest.approx(bench_data["ES.Mod"], abs=tol)
-    
+
     # Drawdowns
     assert pa.max_drawdown(ra) == pytest.approx(bench_data["MaxDrawdown"], abs=tol)
     assert pa.ulcer_index(ra) == pytest.approx(bench_data["UlcerIndex"], abs=tol)
-    
+
     # Attribution
     assert pa.capm_beta(ra, rb, Rf=rf) == pytest.approx(bench_data["CAPM.beta"], abs=tol)
     assert pa.capm_alpha(ra, rb, Rf=rf) == pytest.approx(bench_data["CAPM.alpha"], abs=tol)
@@ -72,8 +74,10 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     assert pa.downside_frequency(ra, MAR=rf.mean()) == pytest.approx(bench_data["DownsideFrequency"], abs=tol)
     assert pa.m2_sortino(ra, rb, MAR=rf.mean()) == pytest.approx(bench_data["M2Sortino"], abs=tol)
     assert pa.m_squared(ra, rb, Rf=rf) == pytest.approx(bench_data["MSquared"], abs=tol)
-    assert pa.m_squared_excess(ra, rb, Rf=rf, method="geometric") == pytest.approx(bench_data["MSquaredExcess_geom"], abs=tol)
-    assert pa.m_squared_excess(ra, rb, Rf=rf, method="arithmetic") == pytest.approx(bench_data["MSquaredExcess_arith"], abs=tol)
+    assert pa.m_squared_excess(ra, rb, Rf=rf, method="geometric") == \
+           pytest.approx(bench_data["MSquaredExcess_geom"], abs=tol)
+    assert pa.m_squared_excess(ra, rb, Rf=rf, method="arithmetic") == \
+           pytest.approx(bench_data["MSquaredExcess_arith"], abs=tol)
     assert pa.net_selectivity(ra, rb, Rf=rf) == pytest.approx(bench_data["NetSelectivity"], abs=tol)
     assert pa.omega_excess_return(ra, rb, MAR=rf.mean()) == pytest.approx(bench_data["OmegaExcessReturn"], abs=tol)
     assert pa.omega_sharpe_ratio(ra, MAR=rf.mean()) == pytest.approx(bench_data["OmegaSharpeRatio"], abs=tol)
@@ -104,7 +108,7 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     bench_ir = bench_data["table.InformationRatio"]
     assert py_ir_table.iloc[0, 0] == pytest.approx(bench_ir["Tracking Error"], abs=tol)
     assert py_ir_table.iloc[1, 0] == pytest.approx(bench_ir["Annualised Tracking Error"], abs=tol)
-    
+
     bench_val = bench_ir["Information Ratio"]
     if pd.isna(bench_val) or bench_val == "NaN" or (isinstance(bench_val, float) and np.isnan(bench_val)):
         assert pd.isna(py_ir_table.iloc[2, 0])

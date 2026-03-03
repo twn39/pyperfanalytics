@@ -1,13 +1,15 @@
-import pandas as pd
+from typing import Dict, Union
+
 import numpy as np
-from typing import Union, List, Dict, Any, Optional
+import pandas as pd
+
 
 def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[pd.Series, pd.DataFrame]:
-    """
+    r"""
     Calculate the drawdown levels in a timeseries.
 
-    Drawdown at time $t$ is calculated as the percentage drop from the highest cumulative return peak 
-    observed up to time $t$. Any time the cumulative return drops below the maximum cumulative return, 
+    Drawdown at time $t$ is calculated as the percentage drop from the highest cumulative return peak
+    observed up to time $t$. Any time the cumulative return drops below the maximum cumulative return,
     it's a drawdown. Drawdowns are measured as a percentage of that maximum cumulative return.
 
     Formula:
@@ -19,7 +21,7 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
     R : pd.Series or pd.DataFrame
         Asset returns.
     geometric : bool, optional
-        If True, calculates geometric cumulative returns (compound). 
+        If True, calculates geometric cumulative returns (compound).
         If False, calculates arithmetic cumulative returns (simple sum). Default is True.
 
     Returns
@@ -33,13 +35,13 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
             cumulative = (1 + s).cumprod()
         else:
             cumulative = 1 + s.cumsum()
-        
+
         # In PA, maxCumulativeReturn = cummax(c(1, Return.cumulative))[-1]
         # This handles the case where the series starts with a drawdown
         hwm = cumulative.expanding().max()
         # If the first value is less than 1, the HWM should be 1
         hwm = np.maximum(hwm, 1.0)
-        
+
         return cumulative / hwm - 1
 
     if isinstance(R, pd.DataFrame):
@@ -48,10 +50,10 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
         return _calc(R, geometric)
 
 def max_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate the maximum drawdown of a return series.
 
-    Maximum drawdown is the absolute value of the worst-case continuous loss 
+    Maximum drawdown is the absolute value of the worst-case continuous loss
     from a peak to a trough. It is the largest drop in a portfolio's equity curve.
 
     Formula:
@@ -77,8 +79,8 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
     """
     Find drawdowns in a return series.
 
-    Finds all the drawdowns in a timeseries and gives a structured output of 
-    their characteristics: the depth, the start period, the trough period, 
+    Finds all the drawdowns in a timeseries and gives a structured output of
+    their characteristics: the depth, the start period, the trough period,
     the end period, the length (in periods), the peak-to-trough length, and the recovery length.
 
     Parameters
@@ -113,16 +115,16 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
 
     dd_vals = dd_series.values
     n = len(dd_vals)
-    
+
     draw = []
     begin = []
     end = []
     trough = []
-    
+
     if n == 0:
         return {
-            "return": np.array([]), "from": np.array([]), "trough": np.array([]), 
-            "to": np.array([]), "length": np.array([]), "peaktotrough": np.array([]), 
+            "return": np.array([]), "from": np.array([]), "trough": np.array([]),
+            "to": np.array([]), "length": np.array([]), "peaktotrough": np.array([]),
             "recovery": np.array([])
         }
 
@@ -131,18 +133,18 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
         prior_sign = 1
     else:
         prior_sign = 0
-        
+
     from_idx = 1
     sofar = float(dd_vals[0])
     to_idx = 1
     dmin = 1
-    
+
     # R loop: for (i in 1:length(drawdowns))
     for i_1 in range(1, n + 1):
         i_0 = i_1 - 1
         val = float(dd_vals[i_0])
         this_sign = 0 if val < 0 else 1
-        
+
         if this_sign == prior_sign:
             if val < sofar:
                 sofar = val
@@ -154,34 +156,34 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
             begin.append(from_idx)
             trough.append(dmin)
             end.append(to_idx)
-            
+
             # Start new
             from_idx = i_1
             sofar = val
             to_idx = i_1 + 1
             dmin = i_1
             prior_sign = this_sign
-            
+
     # Save last
     draw.append(sofar)
     begin.append(from_idx)
     trough.append(dmin)
     end.append(to_idx)
-    
+
     draw = np.array(draw)
     begin = np.array(begin)
     trough = np.array(trough)
     end = np.array(end)
-    
+
     # R's indices are 1-based.
     # length = (end - begin + 1)
     # peaktotrough = (trough - begin + 1)
     # recovery = (end - trough)
-    
+
     lengths = end - begin + 1
     peaktotroughs = trough - begin + 1
     recoveries = end - trough
-    
+
     return {
         "return": draw,
         "from": begin,
@@ -193,7 +195,7 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
     }
 
 def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate the average depth of the observed drawdowns.
 
     Formula:
@@ -226,12 +228,12 @@ def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
         return _calc(R)
 
 def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate the average length (in periods) of the observed drawdowns.
 
     Formula:
     $$ AvgLength = \frac{1}{d} \sum_{j=1}^d L_j $$
-    where $L_j$ is the total length of the $j$-th drawdown (from peak to recovery), 
+    where $L_j$ is the total length of the $j$-th drawdown (from peak to recovery),
     and $d$ is the number of drawdowns.
 
     Parameters
@@ -260,7 +262,7 @@ def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
         return _calc(R)
 
 def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate the average length (in periods) of the observed recovery period.
 
     Formula:
@@ -293,14 +295,14 @@ def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
         return _calc(R)
 
 def drawdown_deviation(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate a standard deviation-type statistic using individual drawdowns.
 
     Drawdown deviation models the dispersion of drawdown depths.
 
     Formula:
     $$ DD = \sqrt{\frac{1}{n} \sum_{j=1}^d D_j^2} $$
-    where $D_j$ is the depth of the $j$-th drawdown, $d$ is the number of drawdowns, 
+    where $D_j$ is the depth of the $j$-th drawdown, $d$ is the number of drawdowns,
     and $n$ is the total number of periods in the series.
 
     Parameters
@@ -368,8 +370,13 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
     else:
         return _calc(R)
 
-def cdd(R: Union[pd.Series, pd.DataFrame], p: float = 0.95, geometric: bool = True, invert: bool = True) -> Union[float, pd.Series]:
-    """
+def cdd(
+    R: Union[pd.Series, pd.DataFrame],
+    p: float = 0.95,
+    geometric: bool = True,
+    invert: bool = True
+) -> Union[float, pd.Series]:
+    r"""
     Calculate Uryasev's proposed Conditional Drawdown at Risk (CDD or CDaR) measure.
 
     For some confidence level $p$, the conditional drawdown is the mean of the worst $p\%$ drawdowns.
@@ -401,12 +408,12 @@ def cdd(R: Union[pd.Series, pd.DataFrame], p: float = 0.95, geometric: bool = Tr
         # R's .setalphaprob(p) converts p>0.5 to 1-p. So p=0.95 becomes 0.05.
         if prob > 0.5:
             prob = 1 - prob
-        
+
         dd_info = find_drawdowns(s, geometric=geometric)
         returns = dd_info["return"]
         if len(returns) == 0:
             return 0.0
-            
+
         # PerformanceAnalytics just uses quantile
         val = np.quantile(returns, prob)
         if invert:

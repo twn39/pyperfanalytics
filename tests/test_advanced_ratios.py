@@ -1,25 +1,26 @@
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
+
 from pyperfanalytics.returns import (
-    omega_ratio,
+    adjusted_sharpe_ratio,
     bernardo_ledoit_ratio,
     d_ratio,
-    rachev_ratio,
+    omega_ratio,
     prospect_ratio,
-    adjusted_sharpe_ratio
+    rachev_ratio,
 )
+
 
 def test_advanced_ratios(managers_data):
     ham1 = managers_data.iloc[:, 0]
-    
+
     # Benchmarks from PerformanceAnalytics
-    # Omega: 3.190689 
-    # BernardoLedoit: 3.190689 
-    # Rachev: 1.482528 
-    # Prospect (MAR=0): 0.328465 
-    # AdjustedSharpe: 0.9198034 
-    
+    # Omega: 3.190689
+    # BernardoLedoit: 3.190689
+    # Rachev: 1.482528
+    # Prospect (MAR=0): 0.328465
+    # AdjustedSharpe: 0.9198034
+
     assert omega_ratio(ham1) == pytest.approx(3.190689, abs=1e-6)
     assert bernardo_ledoit_ratio(ham1) == pytest.approx(3.190689, abs=1e-6)
     assert d_ratio(ham1) == pytest.approx(1.0 / 3.190689, abs=1e-6)

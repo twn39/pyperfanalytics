@@ -1,7 +1,9 @@
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
+
 from pyperfanalytics.returns import return_portfolio
+
 
 @pytest.fixture
 def yf_data():

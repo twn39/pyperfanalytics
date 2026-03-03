@@ -1,6 +1,7 @@
 import pytest
-import pandas as pd
-from pyperfanalytics import tracking_error, active_premium, information_ratio
+
+from pyperfanalytics import active_premium, information_ratio, tracking_error
+
 
 def test_active_metrics_managers(managers_data):
     # Benchmark from R PerformanceAnalytics with managers data
@@ -10,14 +11,14 @@ def test_active_metrics_managers(managers_data):
         "AP": {"HAM1": 0.04078668, "HAM2": 0.07759873},
         "IR": {"HAM1": 0.3604125, "HAM2": 0.5059751}
     }
-    
+
     ra = managers_data[["HAM1", "HAM2"]]
     rb = managers_data[["SP500 TR"]]
-    
+
     te_py = tracking_error(ra, rb)
     ap_py = active_premium(ra, rb)
     ir_py = information_ratio(ra, rb)
-    
+
     for asset in ["HAM1", "HAM2"]:
         assert te_py[asset] == pytest.approx(r_results["TE"][asset], abs=1e-6)
         assert ap_py[asset] == pytest.approx(r_results["AP"][asset], abs=1e-6)

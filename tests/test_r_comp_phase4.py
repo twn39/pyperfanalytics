@@ -1,7 +1,9 @@
-import pytest
 import numpy as np
 import pandas as pd
-from pyperfanalytics.returns import return_portfolio, return_clean, return_geltner
+import pytest
+
+from pyperfanalytics.returns import return_clean, return_geltner, return_portfolio
+
 
 @pytest.fixture
 def test_data():

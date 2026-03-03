@@ -1,7 +1,7 @@
 import pytest
-import pandas as pd
-import numpy as np
+
 from pyperfanalytics import sharpe_ratio
+
 
 def test_sharpe_ratio_stddev(edhec_data):
     # Benchmark results from R PerformanceAnalytics::SharpeRatio(edhec, Rf=0, FUN="StdDev")
@@ -21,9 +21,9 @@ def test_sharpe_ratio_stddev(edhec_data):
         "Short Selling": 0.07552172,
         "Funds of Funds": 0.3249744
     }
-    
+
     py_results = sharpe_ratio(edhec_data, Rf=0, FUN="StdDev")
-    
+
     for asset, r_val in r_results.items():
         assert py_results[asset] == pytest.approx(r_val, abs=1e-6)
 
@@ -44,9 +44,9 @@ def test_sharpe_ratio_semisd(edhec_data):
         "Short Selling": 0.0806424,
         "Funds of Funds": 0.3125013
     }
-    
+
     py_results = sharpe_ratio(edhec_data, Rf=0, FUN="SemiSD")
-    
+
     for asset, r_val in r_results.items():
         assert py_results[asset] == pytest.approx(r_val, abs=1e-6)
 

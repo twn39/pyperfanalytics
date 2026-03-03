@@ -1,19 +1,24 @@
+from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
-from typing import Union, Optional
+
 from pyperfanalytics.utils import _get_scale
 
 
-def return_calculate(prices: Union[pd.Series, pd.DataFrame], method: str = "discrete") -> Union[pd.Series, pd.DataFrame]:
+def return_calculate(
+    prices: Union[pd.Series, pd.DataFrame],
+    method: str = "discrete"
+) -> Union[pd.Series, pd.DataFrame]:
     """
     Calculate returns from a price stream.
 
-    Determines the period-over-period returns based on a pricing series, supporting 
+    Determines the period-over-period returns based on a pricing series, supporting
     both discrete (simple) and continuous (log) methods.
 
     Formula:
     - discrete: $R_t = \frac{P_t}{P_{t-1}} - 1$
-    - continuous: $r_t = \ln(P_t) - \ln(P_{t-1})$
+    - continuous: $r_t = \\ln(P_t) - \\ln(P_{t-1})$
     - difference: $D_t = P_t - P_{t-1}$
 
     Parameters
@@ -37,7 +42,10 @@ def return_calculate(prices: Union[pd.Series, pd.DataFrame], method: str = "disc
     else:
         raise ValueError(f"Unknown method: {method}")
 
-def return_excess(R: Union[pd.Series, pd.DataFrame], Rf: Union[float, pd.Series, pd.DataFrame] = 0.0) -> Union[pd.Series, pd.DataFrame]:
+def return_excess(
+    R: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0
+) -> Union[pd.Series, pd.DataFrame]:
     """
     Calculate excess returns by subtracting the risk-free rate.
     """
@@ -50,28 +58,32 @@ def return_excess(R: Union[pd.Series, pd.DataFrame], Rf: Union[float, pd.Series,
         # Forward fill Rf
         combined[rf_cols] = combined[rf_cols].ffill()
         # Subtract Rf from R columns
-        r_cols = R.columns if isinstance(R, pd.DataFrame) else [R.name]
-        
+        R.columns if isinstance(R, pd.DataFrame) else [R.name]
+
         # If Rf is a single series, subtract it from all R columns
         if len(rf_cols) == 1:
             res = R.sub(combined[rf_cols[0]], axis=0)
         else:
             # Match columns if possible, or assume 1-to-1 mapping
             res = R.sub(combined[rf_cols].values, axis=0)
-        
+
         return res.loc[R.index] if isinstance(R, pd.DataFrame) else res[R.index]
-            
+
     return R - Rf
 
-def return_annualized(R: Union[pd.Series, pd.DataFrame], scale: Optional[int] = None, geometric: bool = True) -> Union[float, pd.Series]:
+def return_annualized(
+    R: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    geometric: bool = True
+) -> Union[float, pd.Series]:
     """
     Calculate annualized return.
 
-    Aggregates period returns into an annualized equivalent, assuming continuous 
+    Aggregates period returns into an annualized equivalent, assuming continuous
     compounding (geometric) or simple arithmetic averaging.
 
     Formula (Geometric):
-    $$ R_{ann} = \left[ \prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1 $$
+    $$ R_{ann} = \\left[ \\prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1 $$
 
     Parameters
     ----------
@@ -89,7 +101,7 @@ def return_annualized(R: Union[pd.Series, pd.DataFrame], scale: Optional[int] = 
     """
     if scale is None:
         scale = _get_scale(R)
-    
+
     # R code: n = length(na.omit(R))
     # For DataFrame, we need to handle per-column
     def _calc(s: pd.Series, sc: int, geom: bool) -> float:
@@ -113,7 +125,7 @@ def std_dev_annualized(R: Union[pd.Series, pd.DataFrame], scale: Optional[int] =
     """
     if scale is None:
         scale = _get_scale(R)
-    
+
     # R uses sd(x, na.rm=TRUE) which is ddof=1
     if isinstance(R, pd.DataFrame):
         return R.std(ddof=1) * np.sqrt(scale)
@@ -129,11 +141,11 @@ def downside_deviation(
     """
     Calculate downside deviation or potential.
 
-    Downside deviation measures the volatility of returns below a minimum acceptable 
+    Downside deviation measures the volatility of returns below a minimum acceptable
     return (MAR). Different from standard deviation, it only penalizes losses.
 
     Formula:
-    $$ \delta_{MAR} = \sqrt{\frac{1}{n} \sum_{t=1}^n \min(R_t - MAR, 0)^2} $$
+    $$ \\delta_{MAR} = \\sqrt{\frac{1}{n} \\sum_{t=1}^n \\min(R_t - MAR, 0)^2} $$
 
     Parameters
     ----------
@@ -155,18 +167,18 @@ def downside_deviation(
         s = s.dropna()
         # R code: r = subset(R, R < MAR)
         under = s[s < mar]
-        
+
         if meth == "full":
             n = len(s)
         else:
             n = len(under)
-            
+
         if n == 0:
             return 0.0
-            
+
         # R code: (MAR - r)
         diff = mar - under
-            
+
         if pot:
             return diff.sum() / n
         else:
@@ -222,7 +234,7 @@ def gain_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]
         subset = s[s > 0]
         if len(subset) < 2: return np.nan
         return subset.std(ddof=1)
-    
+
     if isinstance(R, pd.DataFrame):
         return R.apply(_calc)
     else:
@@ -233,7 +245,7 @@ def loss_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]
         subset = s[s < 0]
         if len(subset) < 2: return np.nan
         return subset.std(ddof=1)
-    
+
     if isinstance(R, pd.DataFrame):
         return R.apply(_calc)
     else:
@@ -262,11 +274,11 @@ def sharpe_ratio(
     """
     Calculate the Sharpe Ratio.
 
-    Measures excess return per unit of risk. The risk metric can be defined as 
+    Measures excess return per unit of risk. The risk metric can be defined as
     Standard Deviation, Value at Risk (VaR), Expected Shortfall (ES), or SemiSD.
 
     Formula:
-    $$ SR = \frac{\overline{R_a - R_f}}{Risk} $$
+    $$ SR = \frac{\\overline{R_a - R_f}}{Risk} $$
 
     Parameters
     ----------
@@ -288,14 +300,14 @@ def sharpe_ratio(
     float or pd.Series
         The Sharpe Ratio.
     """
-    from pyperfanalytics.risk import var_historical, var_gaussian, var_modified, es_historical, es_gaussian, es_modified
-    
+    from pyperfanalytics.risk import es_modified, var_modified
+
     if scale is None and annualize:
         scale = _get_scale(R)
-    
+
     # Calculate excess returns
     xR = return_excess(R, Rf)
-    
+
     if FUN == "StdDev":
         if annualize:
             # R is used for risk calculation, xR for return
@@ -326,7 +338,7 @@ def sharpe_ratio(
             risk = R.apply(lambda s: downside_deviation(s, MAR=s.mean(), method="full"))
         else:
             risk = downside_deviation(R, MAR=R.mean(), method="full")
-        
+
         mu = xR.mean()
         return mu / (risk * np.sqrt(2))
     else:
@@ -340,26 +352,26 @@ def active_premium(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Active Premium or Active Return.
-    
+
     Active Premium = Investment's annualized return - Benchmark's annualized return
     """
     if scale is None:
         scale = _get_scale(R)
-        
+
     # Standardize inputs to DataFrame
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
         r_df = R
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     ra_cols = r_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -369,14 +381,14 @@ def active_premium(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-                
+
             ap = (return_annualized(merged.iloc[:, 0], scale=scale, geometric=geometric) -
                   return_annualized(merged.iloc[:, 1], scale=scale, geometric=geometric))
             col_results.append(ap)
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(ra_cols) == 1 and len(rb_cols) == 1:
         return res_df.iloc[0, 0]
     elif len(rb_cols) == 1:
@@ -392,8 +404,8 @@ def information_ratio(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate the Information Ratio.
-    
-    The Information Ratio measures the active return of an investment divided 
+
+    The Information Ratio measures the active return of an investment divided
     by its tracking error (active risk).
 
     Formula:
@@ -416,10 +428,10 @@ def information_ratio(
         Information Ratio.
     """
     from pyperfanalytics.risk import tracking_error
-    
+
     ap = active_premium(R, Rb, scale=scale, geometric=geometric)
     te = tracking_error(R, Rb, scale=scale)
-    
+
     # Handle the case where tracking_error might return a scalar, Series, or DataFrame
     if isinstance(te, (pd.Series, pd.DataFrame)):
         return ap.divide(te.replace(0, np.nan))
@@ -434,11 +446,11 @@ def capm_alpha(
     """
     Calculate CAPM alpha of returns against a benchmark.
 
-    Alpha represents the excess return of an investment relative to the return of 
+    Alpha represents the excess return of an investment relative to the return of
     a benchmark index, adjusted for the systemic risk (beta) of the investment.
 
     Formula:
-    $$ \alpha = \overline{R_a - R_f} - \beta \cdot \overline{R_b - R_f} $$
+    $$ \alpha = \\overline{R_a - R_f} - \beta \\cdot \\overline{R_b - R_f} $$
 
     Parameters
     ----------
@@ -455,32 +467,32 @@ def capm_alpha(
         CAPM Alpha value(s).
     """
     from pyperfanalytics.risk import capm_beta
-    
+
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     xRa = return_excess(ra_df, Rf)
     # capm_beta expects Ra, Rb, Rf
     beta = capm_beta(Ra, Rb, Rf)
-    
+
     # xRa is a DataFrame. xRb handled by capm_beta grid-style
     # R's CAPM.alpha: xRa = Return.excess(Ra, Rf) and then alpha = mean(xRa) - beta * mean(xRb)
     # Our capm_beta returns a float, Series, or DataFrame
-    
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     xRb = return_excess(rb_df, Rf)
-    
+
     # Alignment and calculation (matching capm_beta logic for pairs)
     ra_cols = xRa.columns
     rb_cols = xRb.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -489,7 +501,7 @@ def capm_alpha(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             # alpha = mean(xRa) - beta * mean(xRb)
             # Fetch beta for this specific pair
             if isinstance(beta, pd.DataFrame):
@@ -498,13 +510,13 @@ def capm_alpha(
                 b = beta[ra_col]
             else:
                 b = beta
-                
+
             alpha = merged.iloc[:, 0].mean() - b * merged.iloc[:, 1].mean()
             col_results.append(alpha)
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(ra_cols) == 1 and len(rb_cols) == 1:
         return res_df.iloc[0, 0]
     elif len(rb_cols) == 1:
@@ -520,8 +532,8 @@ def treynor_ratio(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Treynor Ratio.
-    
-    The Treynor ratio measures returns earned in excess of that which could have 
+
+    The Treynor ratio measures returns earned in excess of that which could have
     been earned on a riskless investment per each unit of market risk (beta).
 
     Formula:
@@ -544,14 +556,14 @@ def treynor_ratio(
         Treynor Ratio.
     """
     from pyperfanalytics.risk import capm_beta
-    
+
     if scale is None:
         scale = _get_scale(Ra)
-        
+
     xRa = return_excess(Ra, Rf)
     ann_return = return_annualized(xRa, scale=scale)
     beta = capm_beta(Ra, Rb, Rf)
-    
+
     # Division will handle Series/DataFrame alignment
     return ann_return / beta
 
@@ -562,13 +574,13 @@ def calmar_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Calmar Ratio.
-    
-    Calculate the ratio of annualized return over the absolute value of the 
-    maximum drawdown. It is a risk-adjusted measure that balances performance 
+
+    Calculate the ratio of annualized return over the absolute value of the
+    maximum drawdown. It is a risk-adjusted measure that balances performance
     with tail risk.
 
     Formula:
-    $$ Calmar = \frac{R_{ann}}{\max(|D_t|)} $$
+    $$ Calmar = \frac{R_{ann}}{\\max(|D_t|)} $$
 
     Parameters
     ----------
@@ -585,13 +597,13 @@ def calmar_ratio(
         Calmar Ratio.
     """
     from pyperfanalytics.drawdowns import max_drawdown
-    
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     ann_return = return_annualized(R, scale=scale, geometric=geometric)
     mdd = np.abs(max_drawdown(R, geometric=geometric))
-    
+
     return ann_return / mdd
 
 
@@ -609,15 +621,15 @@ def up_down_ratios(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -626,22 +638,22 @@ def up_down_ratios(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             s_ra = merged.iloc[:, 0]
             s_rb = merged.iloc[:, 1]
-            
+
             if method == "Capture":
                 if side == "Up":
                     mask = s_rb > 0
                 else:
                     mask = s_rb <= 0
-                
+
                 if not mask.any():
                     col_results.append(np.nan)
                 else:
                     # R code: sum(UpRa)/sum(UpRb)
                     col_results.append(s_ra[mask].sum() / s_rb[mask].sum())
-                    
+
             elif method == "Number":
                 if side == "Up":
                     num = ((s_ra > 0) & (s_rb > 0)).sum()
@@ -649,9 +661,9 @@ def up_down_ratios(
                 else:
                     num = ((s_ra < 0) & (s_rb < 0)).sum()
                     den = (s_rb < 0).sum()
-                
+
                 col_results.append(num / den if den != 0 else np.nan)
-                
+
             elif method == "Percent":
                 if side == "Up":
                     num = ((s_ra > s_rb) & (s_rb > 0)).sum()
@@ -659,15 +671,15 @@ def up_down_ratios(
                 else:
                     num = ((s_ra > s_rb) & (s_rb < 0)).sum()
                     den = (s_rb < 0).sum()
-                    
+
                 col_results.append(num / den if den != 0 else np.nan)
             else:
                 raise ValueError(f"Unknown method: {method}")
-                
+
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(ra_cols) == 1 and len(rb_cols) == 1:
         return res_df.iloc[0, 0]
     elif len(rb_cols) == 1:
@@ -699,11 +711,11 @@ def kelly_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Kelly criterion ratio (leverage or bet size) for a strategy.
-    
+
     The Kelly criterion is a formula used to determine the optimal size of a series of bets.
-    
+
     Formula:
-    $$ KellyRatio = \frac{\overline{R - R_f}}{\sigma^2_R} $$
+    $$ KellyRatio = \frac{\\overline{R - R_f}}{\\sigma^2_R} $$
 
     Parameters
     ----------
@@ -720,19 +732,19 @@ def kelly_ratio(
         Kelly Ratio.
     """
     xR = return_excess(R, Rf)
-    
+
     def _calc(s: pd.Series, sr: pd.Series, meth: str) -> float:
         s = s.dropna()
         sr = sr.dropna()
         if len(s) == 0 or len(sr) == 0: return np.nan
-        
+
         # R code: mean(xR) / StdDev(R)^2
         # StdDev(R) in PA is sample SD (ddof=1)
         kr = s.mean() / (sr.std(ddof=1)**2)
         if meth == "half":
             kr = kr / 2
         return kr
-        
+
     if isinstance(R, pd.DataFrame):
         # We need to apply per column
         results = []
@@ -749,12 +761,12 @@ def upside_potential_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Upside Potential Ratio of upside performance over downside risk.
-    
-    A performance measure dividing upside potential by downside deviation, similar 
+
+    A performance measure dividing upside potential by downside deviation, similar
     to the Sortino ratio.
 
     Formula:
-    $$ UPR = \frac{\frac{1}{n} \sum_{R>MAR} (R - MAR)}{DownsideDeviation(MAR)} $$
+    $$ UPR = \frac{\frac{1}{n} \\sum_{R>MAR} (R - MAR)}{DownsideDeviation(MAR)} $$
 
     Parameters
     ----------
@@ -773,22 +785,22 @@ def upside_potential_ratio(
     def _calc(s: pd.Series, mar: float, meth: str) -> float:
         s = s.dropna()
         upside = s[s > mar]
-        
+
         if meth == "full":
             n = len(s)
         else:
             n = len(upside)
-            
+
         if n == 0: return np.nan
-        
+
         # Numerator: sum(R - MAR) / n
         numerator = (upside - mar).sum() / n
         # Denominator: DownsideDeviation(R, MAR, method=meth)
         denominator = downside_deviation(s, MAR=mar, method=meth)
-        
+
         if denominator == 0: return np.nan
         return numerator / denominator
-        
+
     if isinstance(R, pd.DataFrame):
         return R.apply(_calc, mar=MAR, meth=method)
     else:
@@ -802,9 +814,9 @@ def martin_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Martin ratio of the return distribution.
-    
-    The Martin ratio is the annualized return minus the risk-free rate, divided 
-    by the Ulcer Index. It evaluates performance similar to the Sharpe ratio but 
+
+    The Martin ratio is the annualized return minus the risk-free rate, divided
+    by the Ulcer Index. It evaluates performance similar to the Sharpe ratio but
     penalizing drawdowns.
 
     Formula:
@@ -831,20 +843,20 @@ def martin_ratio(
         Martin ratio.
     """
     from pyperfanalytics.risk import ulcer_index
-    
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     ui = ulcer_index(R)
-    
+
     # Rf in R's MartinRatio is just subtracted from Rp (which is annualized)
     # Expected Rf is the periodic rate.
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_val = Rf.mean()
     else:
         rf_val = Rf
-        
+
     return (ann_ret - rf_val) / ui
 
 def pain_ratio(
@@ -855,8 +867,8 @@ def pain_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Pain ratio of the return distribution.
-    
-    The Pain ratio is the annualized return minus the risk-free rate, divided 
+
+    The Pain ratio is the annualized return minus the risk-free rate, divided
     by the Pain Index.
 
     Formula:
@@ -883,19 +895,19 @@ def pain_ratio(
         Pain ratio.
     """
     from pyperfanalytics.risk import pain_index
-    
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     pi = pain_index(R)
-    
+
     # Match R's bug: periodic Rf
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_val = Rf.mean()
     else:
         rf_val = Rf
-        
+
     return (ann_ret - rf_val) / pi
 
 def upside_risk(
@@ -907,11 +919,11 @@ def upside_risk(
     """
     Calculate upside risk, variance, or potential.
 
-    Depending on the selected stat, measures the variability or sum of returns 
+    Depending on the selected stat, measures the variability or sum of returns
     above a specified Minimum Acceptable Return (MAR).
 
     Formula (Variance):
-    $$ UV = \frac{1}{n} \sum_{R>MAR} (R - MAR)^2 $$
+    $$ UV = \frac{1}{n} \\sum_{R>MAR} (R - MAR)^2 $$
 
     Parameters
     ----------
@@ -933,16 +945,16 @@ def upside_risk(
         s = s.dropna()
         # R code: r = subset(R, R > MAR)
         above = s[s > mar]
-        
+
         if meth == "full":
             n = len(s)
         else:
             n = len(above)
-            
+
         if n == 0: return 0.0
-        
+
         diff = above - mar
-        
+
         if st == "risk":
             return np.sqrt((diff**2).sum() / n)
         elif st == "variance":
@@ -970,7 +982,7 @@ def volatility_skewness(
 ) -> Union[float, pd.Series]:
     """
     Calculate Volatility or Variability Skewness.
-    
+
     A ratio comparing upside variability to downside variability.
 
     Formula (Volatility Skewness):
@@ -1009,12 +1021,13 @@ def omega_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Omega Ratio.
-    
-    The Omega Ratio divides the average return above a threshold by the average 
+
+    The Omega Ratio divides the average return above a threshold by the average
     return below that threshold. Values above 1 signify desirable upside relative to downside risk.
 
     Formula:
-    $$ \Omega = \frac{\int_L^\infty (1 - F(r)) dr}{\int_{-\infty}^L F(r) dr} = \frac{\frac{1}{n} \sum \max(R-L, 0)}{\frac{1}{n} \sum \max(L-R, 0)} $$
+    $$ \\Omega = \frac{\\int_L^\\infty (1 - F(r)) dr}{\\int_{-\\infty}^L F(r) dr} $$
+    $$ \\Omega = \frac{\frac{1}{n} \\sum \\max(R-L, 0)}{\frac{1}{n} \\sum \\max(L-R, 0)} $$
 
     Parameters
     ----------
@@ -1034,7 +1047,7 @@ def omega_ratio(
     """
     if method != "simple":
         raise NotImplementedError("Only 'simple' method is implemented.")
-        
+
     def _calc(s: pd.Series, l: float, rf: float) -> float:
         s = s.dropna()
         if len(s) == 0: return np.nan
@@ -1043,7 +1056,8 @@ def omega_ratio(
         # exp(-rf) cancels out
         num = np.maximum(s - l, 0).mean()
         den = np.maximum(l - s, 0).mean()
-        if den == 0: return np.inf
+        if den == 0:
+            return np.inf
         return num / den
 
     if isinstance(R, pd.DataFrame):
@@ -1051,20 +1065,21 @@ def omega_ratio(
     else:
         return _calc(R, L, Rf)
 
+
 def burke_ratio(
-    R: Union[pd.Series, pd.DataFrame], 
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0, 
+    R: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
     modified: bool = False,
     scale: Optional[int] = None
 ) -> Union[float, pd.Series]:
     """
     Calculate Burke Ratio or Modified Burke Ratio.
-    
-    The Burke Ratio evaluates a portfolio's return against its drawdown risk, 
+
+    The Burke Ratio evaluates a portfolio's return against its drawdown risk,
     squaring drawdowns to penalize larger single losses over multiple smaller ones.
 
     Formula:
-    $$ BurkeRatio = \frac{R_{ann} - R_f}{\sqrt{\sum_{t=1}^d D_t^2}} $$
+    $$ BurkeRatio = \frac{R_{ann} - R_f}{\\sqrt{\\sum_{t=1}^d D_t^2}} $$
 
     Parameters
     ----------
@@ -1073,7 +1088,7 @@ def burke_ratio(
     Rf : float, pd.Series, or pd.DataFrame, optional
         Risk-free rate. Default is 0.0.
     modified : bool, optional
-        If True, multiplies the ratio by $\sqrt{n}$ where $n$ is the number of periods.
+        If True, multiplies the ratio by $\\sqrt{n}$ where $n$ is the number of periods.
     scale : int, optional
         Number of periods in a year.
 
@@ -1090,7 +1105,7 @@ def burke_ratio(
         drawdowns = []
         in_drawdown = False
         start_idx = 0
-        
+
         # R's implementation starts from index 2 (1-based), which is index 1 (0-based)
         for i in range(1, len(s_vals)):
             if s_vals[i] < 0:
@@ -1104,12 +1119,12 @@ def burke_ratio(
                     dd = (np.prod(1 + segment * 0.01) - 1) * 100
                     drawdowns.append(dd)
                     in_drawdown = False
-        
+
         if in_drawdown:
             segment = s_vals[start_idx:]
             dd = (np.prod(1 + segment * 0.01) - 1) * 100
             drawdowns.append(dd)
-            
+
         return np.array(drawdowns)
 
     def _calc(s: pd.Series, rf_val: float) -> float:
@@ -1117,24 +1132,24 @@ def burke_ratio(
         n = len(s)
         if n == 0:
             return np.nan
-        
+
         # Annualized return
         rp = return_annualized(s, scale=scale)
-        
+
         # Special Burke drawdowns
         drawdowns = _get_burke_drawdowns(s)
-        
+
         # R uses percentages for drawdown sum: sum(( (prod(1+Ri)-1)*100 )^2)
         # Which is 10000 * sum(drawdowns^2)
         # So sqrt is 100 * sqrt(sum(drawdowns^2))
         # Denominator is in percents, so Numerator (Rp - Rf) should also be in percents.
         # (Rp - Rf)*100 / (100 * sqrt(sum(dd^2))) = (Rp - Rf) / sqrt(sum(dd^2))
         # The units cancel out.
-        
+
         denom_sq = np.sum(drawdowns**2)
         if denom_sq == 0:
             return np.nan
-            
+
         ratio = (rp - rf_val) / np.sqrt(denom_sq)
         if modified:
             ratio *= np.sqrt(n)
@@ -1155,10 +1170,10 @@ def modigliani(
     Rb: Union[pd.Series, pd.DataFrame],
     Rf: Union[float, pd.Series, pd.DataFrame] = 0
 ) -> Union[float, pd.Series, pd.DataFrame]:
-    """
+    r"""
     Calculate Modigliani-Modigliani (M-squared) measure.
-    
-    M-Squared (M2) adjusts the portfolio's return to match the benchmark's risk 
+
+    M-Squared (M2) adjusts the portfolio's return to match the benchmark's risk
     level, expressing the Sharpe ratio in percentage terms.
 
     Formula:
@@ -1182,12 +1197,12 @@ def modigliani(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_mean = Rf.mean()
     else:
@@ -1195,7 +1210,7 @@ def modigliani(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -1204,19 +1219,19 @@ def modigliani(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             sr_a = sharpe_ratio(a, Rf=rf_mean, annualize=False)
             std_b = b.std(ddof=1)
-            
+
             m2 = sr_a * std_b + rf_mean
             col_results.append(float(m2))
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return res_df.iloc[0, 0]
     elif len(rb_cols) == 1:
@@ -1229,12 +1244,12 @@ def modigliani(
 def mean_absolute_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
     Calculate Mean Absolute Deviation (MAD).
-    
-    An alternative measure of dispersion around the mean, often more robust to 
+
+    An alternative measure of dispersion around the mean, often more robust to
     outliers than standard deviation.
 
     Formula:
-    $$ MAD = \frac{1}{n} \sum_{i=1}^n |R_i - \bar{R}| $$
+    $$ MAD = \frac{1}{n} \\sum_{i=1}^n |R_i - \bar{R}| $$
 
     Parameters
     ----------
@@ -1291,7 +1306,7 @@ def m2_sortino(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
@@ -1299,7 +1314,7 @@ def m2_sortino(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -1308,21 +1323,21 @@ def m2_sortino(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             rp = return_annualized(a, scale=scale)
             sigma_d = downside_deviation(a, MAR=MAR) * np.sqrt(scale)
             sigma_dm = downside_deviation(b, MAR=MAR) * np.sqrt(scale)
             sr = sortino_ratio(a, MAR=MAR)
-            
+
             m2s = rp + sr * (sigma_dm - sigma_d)
             col_results.append(float(m2s))
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return float(res_df.iloc[0, 0])
     elif len(rb_cols) == 1:
@@ -1351,17 +1366,24 @@ def m_squared(
         # Ensure rf_mean is a float if it was a single series/df
         if isinstance(rf_mean, pd.Series):
             rf_mean = rf_mean.iloc[0]
-        rf_ann = (1 + rf_mean)**scale - 1 # Or just mean? PerformanceAnalytics uses Rf passed directly, which is typically already appropriate frequency. Wait, R code uses Rf.
+        (1 + rf_mean)**scale - 1
+        # PerformanceAnalytics uses Rf passed directly, which is typically already appropriate frequency.
+        # Wait, R code uses Rf.
     else:
         rf_mean = Rf
-        rf_ann = Rf # In R MSquared, it just uses Rf directly without annualizing it? Let's check: (Rp - Rf)*... + Rf. If Rp is annualized, Rf should probably be annualized. But R just does Rf=0 by default and uses it directly. Wait, the formula in R uses `Rp` (annualized) and `Rf` directly. Let's use rf_val as provided by the user (usually they pass an annualized Rf or 0). 
+        # In R MSquared, it just uses Rf directly without annualizing it?
+        # Let's check: (Rp - Rf)*... + Rf. If Rp is annualized, Rf should probably be annualized.
+        # But R just does Rf=0 by default and uses it directly.
+        # Wait, the formula in R uses `Rp` (annualized) and `Rf` directly.
+        # Let's use rf_val as provided by the user (usually they pass an annualized Rf or 0).
+
     rf_val = float(rf_mean)
 
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
@@ -1369,42 +1391,42 @@ def m_squared(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
             a = ra_df[ra_col]
             b = rb_df[rb_col]
-            
+
             # Match R's strict NA handling: if any NA, return NA
             if a.isna().any() or b.isna().any():
                 col_results.append(np.nan)
                 continue
-            
+
             merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a_clean = merged.iloc[:, 0]
             b_clean = merged.iloc[:, 1]
-            
+
             rp = return_annualized(a_clean, scale=scale)
-            
+
             # Population standard deviation
             sigp = a_clean.std(ddof=0) * np.sqrt(scale)
             sigm = b_clean.std(ddof=0) * np.sqrt(scale)
-            
+
             if sigp == 0:
                 m2 = np.nan
             else:
                 m2 = (rp - rf_val) * sigm / sigp + rf_val
             col_results.append(float(m2))
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return float(res_df.iloc[0, 0])
     elif len(rb_cols) == 1:
@@ -1430,15 +1452,15 @@ def m_squared_excess(
         scale = _get_scale(Ra)
 
     m2 = m_squared(Ra, Rb, Rf=Rf, scale=scale)
-    
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     # Calculate Rbp for each benchmark
     rbp = rb_df.apply(lambda x: return_annualized(x.dropna(), scale=scale))
-    
+
     if isinstance(m2, float):
         m2_val = m2
         rbp_val = float(rbp.iloc[0])
@@ -1446,7 +1468,7 @@ def m_squared_excess(
             return (1 + m2_val) / (1 + rbp_val) - 1
         else:
             return m2_val - rbp_val
-    
+
     # Complex case: align M2 (which is DataFrame or Series) with Rbp
     if isinstance(m2, pd.Series):
         if len(rb_df.columns) == 1:
@@ -1458,7 +1480,7 @@ def m_squared_excess(
         else:
             # m2 is series where index is assets, but rb had multiple? Wait, if len(ra)=1, index is rb.
             raise NotImplementedError("Complex alignments for M2 Excess not fully supported yet.")
-            
+
     if isinstance(m2, pd.DataFrame):
         res = m2.copy()
         for rb_col in res.index:
@@ -1492,7 +1514,7 @@ def net_selectivity(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
@@ -1500,42 +1522,42 @@ def net_selectivity(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
-    
-    from pyperfanalytics.risk import fama_beta, capm_beta
-    
+
+    from pyperfanalytics.risk import capm_beta, fama_beta
+
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
             a = ra_df[ra_col]
             b = rb_df[rb_col]
-            
+
             # Match R's strict NA handling
             if a.isna().any() or b.isna().any():
                 col_results.append(np.nan)
                 continue
-                
+
             merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             sel = jensen_alpha(a, b, Rf=rf_val, scale=scale)
             f_beta = fama_beta(a, b, scale=scale)
             c_beta = capm_beta(a, b, Rf=rf_val)
             rb_ann = return_annualized(b, scale=scale)
-            
+
             d = (f_beta - c_beta) * (rb_ann - rf_val)
             col_results.append(float(sel - d))
-            
+
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return float(res_df.iloc[0, 0])
     elif len(rb_cols) == 1:
@@ -1561,7 +1583,7 @@ def omega_excess_return(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
@@ -1569,9 +1591,9 @@ def omega_excess_return(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
-    
+
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
@@ -1579,21 +1601,21 @@ def omega_excess_return(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             rp = return_annualized(a, scale=scale)
             sigma_d = downside_deviation(a, MAR=MAR) * np.sqrt(scale)
             sigma_dm = downside_deviation(b, MAR=MAR) * np.sqrt(scale)
-            
+
             val = rp - 3 * sigma_d * sigma_dm
             col_results.append(float(val))
-            
+
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return float(res_df.iloc[0, 0])
     elif len(rb_cols) == 1:
@@ -1622,7 +1644,10 @@ def omega_sharpe_ratio(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0) -> U
     else:
         return _calc(R, MAR)
 
-def downside_sharpe_ratio(R: Union[pd.Series, pd.DataFrame], Rf: Union[float, pd.Series, pd.DataFrame] = 0.0) -> Union[float, pd.Series]:
+def downside_sharpe_ratio(
+    R: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0
+) -> Union[float, pd.Series]:
     """
     Downside Sharpe Ratio = mean(R - Rf) / (sqrt(2) * SemiSD(R))
     SemiSD is calculated wrt mean of returns (not Rf or MAR).
@@ -1675,7 +1700,7 @@ def kappa(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0, l: int = 2) -> Un
         s = s.dropna()
         if len(s) == 0:
             return np.nan
-            
+
         m = s.mean()
         r_down = s[s < mar]
         denom = ((1 / len(s)) * np.sum((mar - r_down)**L))**(1 / L)
@@ -1707,7 +1732,7 @@ def annualized_excess_return(
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
@@ -1715,7 +1740,7 @@ def annualized_excess_return(
 
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
@@ -1724,23 +1749,23 @@ def annualized_excess_return(
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             rpa = return_annualized(a, scale=scale, geometric=geometric)
             rba = return_annualized(b, scale=scale, geometric=geometric)
-            
+
             if geometric:
                 val = (1 + rpa) / (1 + rba) - 1
             else:
                 val = rpa - rba
-                
+
             col_results.append(float(val))
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(rb_cols) == 1 and len(ra_cols) == 1:
         return float(res_df.iloc[0, 0])
     elif len(rb_cols) == 1:
@@ -1784,19 +1809,18 @@ def rachev_ratio(
     Calculate Rachev Ratio.
     ETL(upper, beta) / ETL(lower, alpha).
     """
-    from pyperfanalytics.risk import es_historical
-    
+
     def _calc(s: pd.Series, a: float, b: float) -> float:
         s = s.dropna()
         n = len(s)
         if n == 0: return np.nan
-        
+
         # Lower ETL (ES)
         # R code: quantile.lower <- quantile(data, alpha)
         # ES.lower <- -mean(data[data <= quantile.lower])
         q_lower = np.percentile(s, a * 100)
         es_lower = -s[s <= q_lower].mean()
-        
+
         # Upper ETL
         # R code: n.upper <- floor((1-beta)*length(data))
         # quantile.upper <- sorted.returns[n.upper]
@@ -1805,7 +1829,7 @@ def rachev_ratio(
         sorted_s = np.sort(s.values)
         q_upper = sorted_s[n_upper - 1]
         es_upper = s[s >= q_upper].mean()
-        
+
         return es_upper / es_lower
 
     if isinstance(R, pd.DataFrame):
@@ -1822,13 +1846,13 @@ def prospect_ratio(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0) -> Union
         n_total = len(s)
         s = s.dropna()
         if len(s) == 0: return np.nan
-        
+
         pos = s[s > 0].sum()
         neg = s[s < 0].sum()
-        
+
         dd = downside_deviation(s, MAR=mar, method="full")
         if dd == 0: return np.nan
-        
+
         # R code: (sum(r1)+2.25*sum(r2)-MAR)/(SigD*n)
         # where n is length(R) including NAs
         return (pos + 2.25 * neg - mar) / (dd * n_total)
@@ -1847,19 +1871,19 @@ def adjusted_sharpe_ratio(
     Calculate Adjusted Sharpe Ratio.
     Incorporates skewness and kurtosis penalty.
     """
-    from pyperfanalytics.utils import skewness, kurtosis
-    
+    from pyperfanalytics.utils import kurtosis, skewness
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     def _calc(s: pd.Series, rf: float, sc: int) -> float:
         s = s.dropna()
         if len(s) < 2: return np.nan
-        
+
         sr = sharpe_ratio(s, Rf=rf, annualize=True, scale=sc)
         s_val = skewness(s, method="moment")
         k_val = kurtosis(s, method="moment") # Absolute kurtosis
-        
+
         return sr * (1 + (s_val / 6.0) * sr - ((k_val - 3.0) / 24.0) * sr**2)
 
     if isinstance(R, pd.DataFrame):
@@ -1875,7 +1899,7 @@ def jensen_alpha(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Jensen's Alpha.
-    
+
     Alpha = Rp - Rf - Beta * (Rpb - Rf)
     where Rp and Rpb are annualized returns.
     """
@@ -1883,59 +1907,59 @@ def jensen_alpha(
 
     if scale is None:
         scale = _get_scale(Ra)
-        
+
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     ra_cols = ra_df.columns
     rb_cols = rb_df.columns
-    
+
     results = []
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
             a = ra_df[ra_col]
             b = rb_df[rb_col]
-            
+
             # Match R's strict NA handling
             if a.isna().any() or b.isna().any():
                 col_results.append(np.nan)
                 continue
-                
+
             # Align
             merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
-            
+
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
-            
+
             # Annualized geometric returns
             rp = (1 + a).prod()**(scale / len(a)) - 1
             rpb = (1 + b).prod()**(scale / len(b)) - 1
-            
+
             beta = capm_beta(a, b, Rf=Rf)
-            
+
             # Use mean Rf if Rf is a series
             if isinstance(Rf, (pd.Series, pd.DataFrame)):
                 rf_val = Rf.mean() * scale
             else:
                 rf_val = Rf
-                
+
             # Note: R's CAPM.jensenAlpha: result = Rp - Rf - beta * (Rpb - Rf)
-            # where Rp and Rpb are annualized. 
-            # If Rf is given as a periodic rate (like in managers), 
-            # we should annualize it too? 
-            # Looking at R managers example: Rf=.035/12. 
+            # where Rp and Rpb are annualized.
+            # If Rf is given as a periodic rate (like in managers),
+            # we should annualize it too?
+            # Looking at R managers example: Rf=.035/12.
             # If we pass Rf=.035/12 to CAPM.jensenAlpha, does it annualize it?
             # From source: result = Rp - Rf - beta * (Rpb - Rf)
             # It DOES NOT. So Rf is assumed to be at the same scale as Rp.
@@ -1943,13 +1967,13 @@ def jensen_alpha(
             # Wait, 0.035/12 is 0.0029. 0.035 is already the "annualized" rate in some sense?
             # Let's re-read CAPM.jensenAlpha example: Rf=.035/12.
             # If Rf is passed as a constant, it's used as-is.
-            
+
             j_alpha = rp - rf_val - beta * (rpb - rf_val)
             col_results.append(j_alpha)
         results.append(col_results)
-        
+
     res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
-    
+
     if len(ra_cols) == 1 and len(rb_cols) == 1:
         return res_df.iloc[0, 0]
     elif len(rb_cols) == 1:
@@ -1965,14 +1989,14 @@ def appraisal_ratio(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Appraisal Ratio.
-    
+
     Appraisal ratio = Jensen's Alpha / Specific Risk
     """
     from pyperfanalytics.risk import specific_risk
-    
+
     j_alpha = jensen_alpha(Ra, Rb, Rf=Rf, scale=scale)
     spec_risk = specific_risk(Ra, Rb, Rf=Rf, scale=scale)
-    
+
     return j_alpha / spec_risk
 
 def market_timing(
@@ -1983,33 +2007,33 @@ def market_timing(
 ) -> pd.DataFrame:
     """
     Estimate Market Timing models (Treynor-Mazuy or Henriksson-Merton).
-    
+
     Method:
         "TM" - Treynor-Mazuy model
         "HM" - Henriksson-Merton model
     """
     import statsmodels.api as sm
-    
+
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
         ra_df = Ra
-        
+
     if isinstance(Rb, pd.Series):
         rb_df = Rb.to_frame()
     else:
         rb_df = Rb
-        
+
     xRa = return_excess(ra_df, Rf)
     xRb = return_excess(rb_df, Rf)
-    
+
     ra_cols = xRa.columns
     rb_cols = xRb.columns
-    
+
     results = []
     index_names = []
-    
+
     for rb_col in rb_cols:
         for ra_col in ra_cols:
             # Align
@@ -2019,7 +2043,7 @@ def market_timing(
             else:
                 y = merged.iloc[:, 0]
                 x1 = merged.iloc[:, 1]
-                
+
                 if method == "TM":
                     # TM: Rp-Rf = alpha + beta(Rb-Rf) + gamma(Rb-Rf)^2
                     x2 = x1**2
@@ -2029,13 +2053,13 @@ def market_timing(
                     x2 = x1.clip(upper=0)
                 else:
                     raise ValueError("Method must be 'TM' or 'HM'")
-                
+
                 X = sm.add_constant(np.column_stack([x1, x2]))
                 model = sm.OLS(y, X).fit()
                 results.append(model.params.values)
-                
+
             index_names.append(f"{ra_col} to {rb_col}")
-            
+
     res_df = pd.DataFrame(results, index=index_names, columns=["Alpha", "Beta", "Gamma"])
     return res_df
 
@@ -2053,22 +2077,23 @@ def prob_sharpe_ratio(
     Reference: Marcos Lopez de Prado. 2018. Advances in Financial Machine Learning.
     """
     from scipy.stats import norm
-    from pyperfanalytics.utils import skewness, kurtosis
-    
+
+    from pyperfanalytics.utils import kurtosis, skewness
+
     def _calc(s: pd.Series, rsr: float, rf: float) -> float:
         s = s.dropna()
         n = len(s)
         if n <= 2:
             return np.nan
-        
+
         # Periodic SR (non-annualized)
         sr = sharpe_ratio(s, Rf=rf, annualize=False)
-        
+
         # Moments
         sk = skewness(s) if not ignore_skewness else 0.0
         # R's PerformanceAnalytics uses kurtosis(method='moment') which is non-excess
         kr = kurtosis(s, method='moment') if not ignore_kurtosis else 3.0
-        
+
         # PSR formula
         # sr_prob = pnorm(((sr - refSR)*((n-1)^(0.5)))/(1-sr*sk+(sr^2)*(kr-1)/4)^(0.5))
         numerator = (sr - rsr) * np.sqrt(n - 1)
@@ -2076,7 +2101,7 @@ def prob_sharpe_ratio(
         denom_sq = 1.0 - sr * sk + (sr**2) * (kr - 1.0) / 4.0
         if denom_sq <= 0:
             return np.nan
-        
+
         denominator = np.sqrt(denom_sq)
         return float(norm.cdf(numerator / denominator))
 
@@ -2089,7 +2114,7 @@ def prob_sharpe_ratio(
                 ref_s = refSR.iloc[0]
             else:
                 ref_s = refSR
-            
+
             results = {}
             for col in R.columns:
                 rsr_val = ref_s[col]
@@ -2101,37 +2126,20 @@ def prob_sharpe_ratio(
         return _calc(R, refSR, Rf)
 
 
-def mean_absolute_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
-    """
-    Mean absolute deviation of the return distribution.
-    
-    MeanAbsoluteDeviation = sum(|r - mean(r)|) / n
-    """
-    def _calc(s: pd.Series) -> float:
-        s_clean = s.dropna()
-        if s_clean.empty:
-            return np.nan
-        return (s_clean - s_clean.mean()).abs().mean()
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc)
-    else:
-        return _calc(R)
-
-
 def sterling_ratio(
+
     R: Union[pd.Series, pd.DataFrame],
     scale: Optional[int] = None,
     excess: float = 0.1
 ) -> Union[float, pd.Series]:
     """
     Calculate Sterling Ratio.
-    
+
     Sterling Ratio = Annualized Return / (Absolute Maximum Drawdown + Excess)
     """
     if scale is None:
         scale = _get_scale(R)
-        
+
     def _calc(s: pd.Series, sc: int, ex: float) -> float:
         from pyperfanalytics.drawdowns import max_drawdown
         s_clean = s.dropna()
@@ -2150,7 +2158,7 @@ def sterling_ratio(
 def hurst_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
     Calculate the Hurst Index (Simplified Rescaled Range analysis).
-    H = log(m)/log(n) 
+    H = log(m)/log(n)
     where m = [max(r_i) - min(r_i)]/sigma_p and n = number of observations
     """
     def _calc(s: pd.Series) -> float:
@@ -2181,22 +2189,22 @@ def to_period_contributions(
         C = Contributions.to_frame()
     else:
         C = Contributions.copy()
-        
+
     if not isinstance(C.index, pd.DatetimeIndex):
         raise ValueError("Contributions index must be a DatetimeIndex.")
 
     # Calculate portfolio return from contributions
     pret = C.sum(axis=1)
-    
+
     # Lagged cumulative wealth index
     # R code: lag.cum.ret = na.fill(xts::lag.xts(cumprod(1+pret),1),1)
     cum_ret = (1 + pret).cumprod()
     lag_cum_ret = cum_ret.shift(1).fillna(1.0)
-    
+
     # Weighted contributions
     # R code: wgt.contrib = C * rep(lag.cum.ret, NCOL(C))
     wgt_contrib = C.multiply(lag_cum_ret, axis=0)
-    
+
     if period == "all":
         # Sum everything
         res = wgt_contrib.sum().to_frame().T
@@ -2212,14 +2220,14 @@ def to_period_contributions(
         freq = freq_map.get(period)
         if freq is None:
             raise ValueError(f"Invalid period: {period}")
-            
+
         # R code: sum(wgt.contrib[span] / rep(head(lag.cum.ret[span],1), NCOL(wgt.contrib)))
         # For each period, we divide by the wealth index at the start of that period.
-        
+
         def _aggregate(group):
             first_lag = lag_cum_ret.loc[group.index[0]]
             return group.sum() / first_lag
-            
+
         res = wgt_contrib.groupby(pd.Grouper(freq=freq)).apply(_aggregate)
 
     # Add Portfolio Return column
@@ -2236,15 +2244,15 @@ def return_geltner(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Dat
         s_clean = s.dropna()
         if len(s_clean) < 2:
             return s
-            
+
         # compute first order autocorrelation
         from statsmodels.tsa.stattools import acf
         rho = acf(s_clean, nlags=1, fft=False)[1]
-        
+
         # calculate geltner series
         lag_s = s.shift(1)
         res = (s - lag_s * rho) / (1 - rho)
-        
+
         # Keep original indices/NAs for unshiftable portions
         return res
 
@@ -2261,9 +2269,9 @@ def return_clean(
 ) -> Union[pd.Series, pd.DataFrame]:
     """
     Clean extreme observations in a time series to provide robust risk estimates.
-    Robustly clean a time series to reduce the magnitude of observations that exceed 
+    Robustly clean a time series to reduce the magnitude of observations that exceed
     the 1-alpha risk threshold using Minimum Covariance Determinant (MCD).
-    
+
     method: "none", "boudt", or "geltner".
     """
     if method == "none":
@@ -2273,20 +2281,20 @@ def return_clean(
     elif method == "boudt":
         from scipy.stats import chi2
         from sklearn.covariance import MinCovDet
-        
+
         if isinstance(R, pd.Series):
             df = R.to_frame()
             is_series = True
         else:
             df = R
             is_series = False
-            
+
         df_clean = df.dropna()
         n_obs, n_vars = df_clean.shape
-        
+
         if n_obs < 2:
             return R.copy()
-            
+
         try:
             mcd = MinCovDet(support_fraction=1-alpha).fit(df_clean.values)
             mu = mcd.raw_location_
@@ -2296,33 +2304,33 @@ def return_clean(
             import warnings
             warnings.warn("Covariance matrix is singular, returning original data.")
             return R.copy()
-            
+
         # 1. Sort the data in function of their extremeness (Mahalanobis distance)
         diff = df_clean.values - mu
         d2 = np.sum((diff.dot(invSigma)) * diff, axis=1)
-        
+
         # 2. Outlier detection
         # empirical 1-alpha quantile
         sorted_d2 = np.sort(d2)
         idx = int(np.floor((1 - alpha) * n_obs)) - 1 # 0-based index correction
         if idx < 0:
             idx = 0
-            
+
         empirical_threshold = sorted_d2[idx]
         chi2_thresh = chi2.ppf(1 - trim, n_vars)
-        
+
         # 2.2 Multivariate winsorization
         res = df.copy()
         threshold = max(empirical_threshold, chi2_thresh)
         needs_cleaning = (d2 > empirical_threshold) & (d2 > chi2_thresh)
-        
+
         scale_factors = np.sqrt(threshold / d2[needs_cleaning])
-        
+
         clean_values = df_clean.values.copy()
         clean_values[needs_cleaning, :] = clean_values[needs_cleaning, :] * scale_factors[:, None]
-        
+
         res.update(pd.DataFrame(clean_values, index=df_clean.index, columns=df_clean.columns))
-        
+
         if is_series:
             return res.iloc[:, 0]
         else:
@@ -2344,25 +2352,25 @@ def return_portfolio(
         r_df = R.to_frame()
     else:
         r_df = R.copy()
-        
+
     if r_df.isna().any().any():
         import warnings
         warnings.warn("NAs detected: filling NAs with zeros")
         r_df = r_df.fillna(0)
-        
+
     n_obs, n_cols = r_df.shape
     r_idx = r_df.index
-    
+
     if weights is None:
         w_arr = np.ones(n_cols) / n_cols
     else:
         w_arr = np.array(weights).flatten()
         if len(w_arr) != n_cols:
             raise ValueError(f"weights must have {n_cols} elements")
-            
+
     ret_arr = r_df.values
     out_ret = np.zeros(n_obs)
-    
+
     # Identify rebalance endpoints
     if rebalance_on == "none":
         endpoints = [0, n_obs]
@@ -2377,9 +2385,9 @@ def return_portfolio(
         resamp_rule = freq_map.get(rebalance_on)
         if resamp_rule is None:
             raise ValueError(f"unsupported rebalance_on: {rebalance_on}")
-            
+
         grp = r_df.groupby(pd.Grouper(freq=resamp_rule))
-        
+
         endpoints = []
         for name, g in grp:
             if not g.empty:
@@ -2388,48 +2396,48 @@ def return_portfolio(
         endpoints.append(n_obs)
         if endpoints[0] != 0:
             endpoints.insert(0, 0)
-            
+
     endpoints = sorted(list(set(endpoints)))
 
     if geometric:
         end_value = 1.0
         bop_value = np.zeros(n_cols)
         eop_value = np.zeros(n_cols)
-        
+
         for i in range(len(endpoints) - 1):
             start = endpoints[i]
             end = endpoints[i+1]
             if start == end: continue
-            
+
             for j in range(start, end):
                 if j == start:
                     bop_value = end_value * w_arr
                 else:
                     bop_value = eop_value.copy()
-                    
+
                 eop_value = bop_value * (1 + ret_arr[j, :])
                 eop_value_total = np.sum(eop_value)
-                
+
                 out_ret[j] = eop_value_total / end_value - 1
                 end_value = eop_value_total
-                
+
     else:
         bop_weights = np.zeros(n_cols)
         eop_weights = np.zeros(n_cols)
-        
+
         for i in range(len(endpoints) - 1):
             start = endpoints[i]
             end = endpoints[i+1]
             if start == end: continue
-            
+
             for j in range(start, end):
                 if j == start:
                     bop_weights = w_arr.copy()
                 else:
                     bop_weights = eop_weights.copy()
-                    
+
                 period_contrib = ret_arr[j, :] * bop_weights
-                
+
                 eop_weights = (period_contrib + bop_weights) / np.sum(period_contrib + bop_weights)
                 out_ret[j] = np.sum(period_contrib)
 

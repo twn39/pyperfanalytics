@@ -1,6 +1,8 @@
+from typing import Union
+
 import numpy as np
 import pandas as pd
-from typing import Union
+
 
 def centered_moment(R: Union[pd.Series, pd.DataFrame], moment: int) -> Union[float, pd.Series]:
     """
@@ -23,21 +25,21 @@ def centered_comoment(Ra: pd.Series, Rb: pd.Series, p1: int, p2: int, normalize:
     """
     merged = pd.concat([Ra, Rb], axis=1).dropna()
     if merged.empty: return np.nan
-    
+
     a = merged.iloc[:, 0]
     b = merged.iloc[:, 1]
-    
+
     centered_a = a - a.mean()
     centered_b = b - b.mean()
-    
+
     out = (centered_a**p1 * centered_b**p2).mean()
-    
+
     if normalize:
         # R code: out = out / centeredmoment(Rb, power=(p1+p2))
         m_b = (centered_b**(p1+p2)).mean()
         if m_b == 0: return np.nan
         out = out / m_b
-        
+
     return out
 
 def co_variance(Ra: pd.Series, Rb: pd.Series) -> float:
@@ -67,12 +69,12 @@ def skewness(R: Union[pd.Series, pd.DataFrame], method: str = "moment") -> Union
         s = s.dropna()
         n = len(s)
         if n == 0: return np.nan
-        
+
         # PerformanceAnalytics specific:
         # method="moment" is population skewness (centered)
         # method="fisher" is raw fisher (NO centering)
         # method="sample" is adjusted population skewness (centered)
-        
+
         if meth == "moment":
             m2 = np.mean((s - s.mean())**2)
             m3 = np.mean((s - s.mean())**3)
@@ -84,7 +86,8 @@ def skewness(R: Union[pd.Series, pd.DataFrame], method: str = "moment") -> Union
             if n < 3: return np.nan
             m2 = np.mean((s - s.mean())**2)
             m3 = np.mean((s - s.mean())**3)
-            return (m3 / (m2**(1.5))) * n / ((n-1)*(n-2)) * n # R's sample formula: n/((n-1)(n-2)) * sum( (x-mu)^3 / sd_pop^3 )
+            # R's sample formula: n/((n-1)(n-2)) * sum( (x-mu)^3 / sd_pop^3 )
+            return (m3 / (m2**(1.5))) * n / ((n-1)*(n-2)) * n
             # In R's skewness.R: sum((x-mean(x))^3/sqrt(var(x)*(n-1)/n)^3)*n/((n-1)*(n-2))
             # sd_pop = sqrt(var(x)*(n-1)/n) = sqrt(m2)
             # sum( (x-mu)^3 / m2^1.5 ) = n * m3 / m2^1.5
@@ -106,10 +109,10 @@ def kurtosis(R: Union[pd.Series, pd.DataFrame], method: str = "excess") -> Union
         s = s.dropna()
         n = len(s)
         if n == 0: return np.nan
-        
+
         m2 = np.mean((s - s.mean())**2)
         m4 = np.mean((s - s.mean())**4)
-        
+
         if meth == "moment":
             return m4 / (m2**2)
         elif meth == "excess":
