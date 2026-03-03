@@ -28,6 +28,8 @@ from pyperfanalytics.tables import (
     table_drawdowns_ratio,
     table_stats,
     table_monthly_returns,
+    table_prob_outperformance,
+    table_rolling_periods,
 )
 from pyperfanalytics.returns import (
     return_calculate,
@@ -83,6 +85,8 @@ from pyperfanalytics.returns import (
     prob_sharpe_ratio,
     mean_absolute_deviation,
     sterling_ratio,
+    hurst_index,
+    to_period_contributions,
 )
 from pyperfanalytics.risk import (
     var_historical,
@@ -103,6 +107,7 @@ from pyperfanalytics.risk import (
     cdar_beta,
     cdar_alpha,
     min_track_record,
+    smoothing_index,
 )
 from pyperfanalytics.utils import (
     centered_moment,

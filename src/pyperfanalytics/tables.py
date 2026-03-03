@@ -1033,5 +1033,119 @@ def table_stats(
     return res_df.round(digits)
 
 
+def table_prob_outperformance(
+    R: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    period_lengths: list[int] = [1, 3, 6, 9, 12, 18, 36]
+) -> pd.DataFrame:
+    """
+    Outperformance Report of Asset vs Benchmark.
+    Returns a table that contains the counts and probabilities 
+    of outperformance relative to benchmark for the various period_lengths.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_col = r_df.columns[0]
+    rb_col = rb_df.columns[0]
+    
+    merged = pd.concat([r_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+    a = merged.iloc[:, 0]
+    b = merged.iloc[:, 1]
+    
+    results = []
+    for p_len in period_lengths:
+        # Trailing cumulative returns
+        a_cum = (1 + a).rolling(p_len).apply(np.prod) - 1
+        b_cum = (1 + b).rolling(p_len).apply(np.prod) - 1
+        
+        diff = a_cum - b_cum
+        out = (diff > 0).sum()
+        under = (diff < 0).sum()
+        total = out + under
+        
+        prob_out = float(out) / total if total > 0 else np.nan
+        prob_under = float(under) / total if total > 0 else np.nan
+        
+        results.append([p_len, out, under, total, prob_out, prob_under])
+        
+    cols = ["period_lengths", ra_col, rb_col, "total periods", f"prob_{ra_col}_outperformance", f"prob_{rb_col}_outperformance"]
+    return pd.DataFrame(results, columns=cols)
+
+
+def table_rolling_periods(
+    R: Union[pd.Series, pd.DataFrame],
+    periods: list[int] = [12, 36, 60],
+    funcs: list[str] = ["mean", "sd"],
+    funcs_names: list[str] = ["Average", "Std Dev"],
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Rolling Periods Summary: Statistics and Stylized Facts.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    from pyperfanalytics.returns import return_annualized, std_dev_annualized, sharpe_ratio
+    
+    # Map function names to actual functions or series methods
+    func_map = {
+        "mean": lambda s: s.mean(),
+        "sd": lambda s: s.std(),
+        "return_annualized": lambda s: return_annualized(s),
+        "std_dev_annualized": lambda s: std_dev_annualized(s),
+        "sharpe_ratio": lambda s: sharpe_ratio(s)
+    }
+    
+    results = []
+    row_names = []
+    
+    columns = r_df.columns
+    scale = _get_scale(r_df)
+    scale_map = {252: "day", 52: "week", 12: "month", 4: "quarter", 1: "year"}
+    scale_str = scale_map.get(scale, "period")
+    
+    for i, func_str in enumerate(funcs):
+        curr_f_name = funcs_names[i] if i < len(funcs_names) else func_str
+        f = func_map.get(func_str)
+        
+        for p in periods:
+            row_results = []
+            row_names.append(f"Last {p} {scale_str} {curr_f_name}")
+            for col in columns:
+                # PerformanceAnalytics: last(column.data, period)
+                # In R, last(x, n) gives the last n entries.
+                s_full = r_df[col].dropna()
+                if len(s_full) < p:
+                    row_results.append(np.nan)
+                else:
+                    s = s_full.tail(p)
+                    if f:
+                        try:
+                            val = f(s)
+                            row_results.append(val)
+                        except:
+                            row_results.append(np.nan)
+                    else:
+                        try:
+                            val = getattr(s, func_str)()
+                            row_results.append(val)
+                        except:
+                            row_results.append(np.nan)
+            results.append(row_results)
+            
+    res_df = pd.DataFrame(results, index=row_names, columns=columns)
+    return res_df.round(digits)
+
+
 # Alias for compatibility with implementation plan
 table_monthly_returns = table_stats

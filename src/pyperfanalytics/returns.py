@@ -301,8 +301,10 @@ def information_ratio(
     te = tracking_error(R, Rb, scale=scale)
     
     # Handle the case where tracking_error might return a scalar, Series, or DataFrame
-    # If ap is a DataFrame and te is a DataFrame, division works correctly
-    return ap / te
+    if isinstance(te, (pd.Series, pd.DataFrame)):
+        return ap.divide(te.replace(0, np.nan))
+    else:
+        return ap / te if te != 0 else np.nan
 
 def capm_alpha(
     Ra: Union[pd.Series, pd.DataFrame],
@@ -1742,3 +1744,83 @@ def sterling_ratio(
         return R.apply(_calc, sc=scale, ex=excess)
     else:
         return _calc(R, scale, excess)
+
+
+def hurst_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
+    """
+    Calculate the Hurst Index (Simplified Rescaled Range analysis).
+    H = log(m)/log(n) 
+    where m = [max(r_i) - min(r_i)]/sigma_p and n = number of observations
+    """
+    def _calc(s: pd.Series) -> float:
+        s = s.dropna()
+        n = len(s)
+        if n < 2:
+            return np.nan
+        m = (s.max() - s.min()) / s.std()
+        if m <= 0:
+            return np.nan
+        return np.log(m) / np.log(n)
+
+    if isinstance(R, pd.DataFrame):
+        return R.apply(_calc)
+    else:
+        return _calc(R)
+
+
+def to_period_contributions(
+    Contributions: Union[pd.Series, pd.DataFrame],
+    period: str = "years"
+) -> pd.DataFrame:
+    """
+    Aggregate high-frequency contributions to lower frequency.
+    Valid periods: 'weeks', 'months', 'quarters', 'years', 'all'.
+    """
+    if isinstance(Contributions, pd.Series):
+        C = Contributions.to_frame()
+    else:
+        C = Contributions.copy()
+        
+    if not isinstance(C.index, pd.DatetimeIndex):
+        raise ValueError("Contributions index must be a DatetimeIndex.")
+
+    # Calculate portfolio return from contributions
+    pret = C.sum(axis=1)
+    
+    # Lagged cumulative wealth index
+    # R code: lag.cum.ret = na.fill(xts::lag.xts(cumprod(1+pret),1),1)
+    cum_ret = (1 + pret).cumprod()
+    lag_cum_ret = cum_ret.shift(1).fillna(1.0)
+    
+    # Weighted contributions
+    # R code: wgt.contrib = C * rep(lag.cum.ret, NCOL(C))
+    wgt_contrib = C.multiply(lag_cum_ret, axis=0)
+    
+    if period == "all":
+        # Sum everything
+        res = wgt_contrib.sum().to_frame().T
+        res.index = [C.index[-1]]
+    else:
+        # Aggregate by period
+        freq_map = {
+            "weeks": "W",
+            "months": "ME",
+            "quarters": "QE",
+            "years": "YE"
+        }
+        freq = freq_map.get(period)
+        if freq is None:
+            raise ValueError(f"Invalid period: {period}")
+            
+        # R code: sum(wgt.contrib[span] / rep(head(lag.cum.ret[span],1), NCOL(wgt.contrib)))
+        # For each period, we divide by the wealth index at the start of that period.
+        
+        def _aggregate(group):
+            first_lag = lag_cum_ret.loc[group.index[0]]
+            return group.sum() / first_lag
+            
+        res = wgt_contrib.groupby(pd.Grouper(freq=freq)).apply(_aggregate)
+
+    # Add Portfolio Return column
+    res["Portfolio Return"] = res.sum(axis=1)
+    return res

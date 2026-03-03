@@ -442,6 +442,58 @@ def herfindahl_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Serie
     else:
         return _calc(R)
 
+
+def smoothing_index(
+    R: Union[pd.Series, pd.DataFrame],
+    neg_thetas: bool = False,
+    MAorder: int = 2
+) -> Union[float, pd.Series]:
+    """
+    Calculate Normalized Getmansky Smoothing Index.
+    A lower value implies more smoothing (less liquid).
+    A value of 1 implies no smoothing (more liquid).
+    """
+    from statsmodels.tsa.arima.model import ARIMA
+    
+    def _calc(s: pd.Series, neg: bool, order: int) -> float:
+        s = s.dropna()
+        if len(s) < order + 5: # Need enough data for ARIMA
+            return np.nan
+        
+        try:
+            import warnings
+            from statsmodels.tools.sm_exceptions import ValueWarning
+            
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=ValueWarning)
+                # R arima(..., include.mean=FALSE)
+                model = ARIMA(s, order=(0, 0, order), enforce_invertibility=True, trend='n')
+                res = model.fit()
+            
+            # statsmodels params for MA components are 'ma.L1', 'ma.L2'...
+            ma_params = []
+            for i in range(1, order + 1):
+                name = f'ma.L{i}'
+                if name in res.params:
+                    ma_params.append(res.params[name])
+                else:
+                    ma_params.append(0.0)
+            
+            if not neg:
+                ma_params = [max(0.0, c) for c in ma_params]
+                
+            thetas = np.array([1.0] + ma_params)
+            thetas /= thetas.sum()
+            
+            return float(np.sum(thetas**2))
+        except:
+            return np.nan
+
+    if isinstance(R, pd.DataFrame):
+        return R.apply(_calc, neg=neg_thetas, order=MAorder)
+    else:
+        return _calc(R, neg_thetas, MAorder)
+
 def fama_beta(
     Ra: Union[pd.Series, pd.DataFrame],
     Rb: Union[pd.Series, pd.DataFrame],
