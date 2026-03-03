@@ -17,10 +17,10 @@ The library ensures algorithmic consistency with the original R implementation, 
 
 ```bash
 # Using uv (recommended)
-uv pip install -e .
+uv pip install pyperfanalytics
 
 # Using pip
-pip install -e .
+pip install pyperfanalytics
 ```
 
 ## Quick Start
@@ -40,38 +40,130 @@ risk_table = pa.table_downside_risk_ratio(returns)
 print(risk_table)
 ```
 
-## API Overview
+## API Reference
 
-### Returns & Data Adjustments (`pyperfanalytics.returns`)
-- `return_calculate`: Calculate returns from prices.
-- `return_portfolio`: Aggregate portfolio returns with periodic rebalancing and geometric/arithmetic compounding.
-- `return_clean`: Robust data cleaning using MCD (Minimum Covariance Determinant).
-- `return_geltner`: Liquidity adjustment using autocorrelation unsmoothing.
-- `return_annualized` / `return_cumulative`: Annualize or compound returns.
-- `return_excess`: Calculate excess returns over a risk-free rate.
+### 1. Returns & Portfolio Management
 
-### Risk & Drawdowns (`pyperfanalytics.risk`, `pyperfanalytics.drawdowns`)
-- `var_historical` / `var_gaussian` / `var_modified`: Value at Risk.
-- `es_historical` / `es_gaussian` / `es_modified`: Expected Shortfall.
-- `tracking_error` / `specific_risk` / `systematic_risk`: Active management risk metrics.
-- `capm_beta` / `capm_alpha` / `jensen_alpha` / `fama_beta`: Asset pricing model metrics.
-- `max_drawdown` / `find_drawdowns`: Identify and measure historical drawdowns.
-- `cdar` / `cdar_beta` / `cdar_alpha`: Conditional Drawdown at Risk.
+#### `return_calculate(prices, method="discrete")`
+Calculate returns from a price stream.
+- **Parameters**:
+    - `prices` (*pd.Series* or *pd.DataFrame*): Price levels.
+    - `method` (*str*): Calculation method: `"discrete"` (default), `"log"` (continuous), or `"diff"` (absolute difference).
+- **Example**:
+```python
+returns = pa.return_calculate(prices, method="log")
+```
 
-### Performance Ratios (`pyperfanalytics.returns`)
-- **Risk-Adjusted**: `sharpe_ratio`, `sortino_ratio`, `calmar_ratio`, `omega_ratio`.
-- **Advanced**: `appraisal_ratio`, `kappa`, `prospect_ratio`, `sterling_ratio`, `m_squared`, `m2_excess`.
-- **Active / Drawdown**: `information_ratio`, `burke_ratio`, `martin_ratio`, `pain_ratio`, `net_selectivity`.
-- **Statistical**: `hurst_index`, `smoothing_index`, `mean_absolute_deviation`.
+#### `return_annualized(R, scale=None, geometric=True)`
+Calculate the annualized return.
+- **Parameters**:
+    - `R` (*pd.Series* or *pd.DataFrame*): Asset returns.
+    - `scale` (*int*, optional): Number of periods in a year (e.g., 12 for monthly, 252 for daily). If None, it's inferred from the index.
+    - `geometric` (*bool*): Whether to use geometric compounding.
+- **Example**:
+```python
+ann_ret = pa.return_annualized(returns, scale=12)
+```
 
-### Summary Tables (`pyperfanalytics.tables`)
-- `table_stats`: Comprehensive statistical summary.
-- `table_annualized_returns`: Core annualized performance facts.
-- `table_distributions`: Summary of moments (Skewness, Kurtosis).
-- `table_correlation` / `table_autocorrelation`: Pearson correlations and lag dependencies.
-- `table_downside_risk_ratio` / `table_drawdowns_ratio`: Risk and drawdown tracking.
-- `table_capture_ratios` / `table_up_down_ratios`: Market capture evaluations.
-- `table_prob_outperformance` / `table_rolling_periods`: Outperformance probability and trailing metrics.
+#### `return_portfolio(R, weights=None, rebalance_on="none", geometric=True)`
+Calculate the returns of a portfolio.
+- **Parameters**:
+    - `R` (*pd.DataFrame*): Returns of individual assets.
+    - `weights` (*list* or *np.array*, optional): Asset weights. Defaults to equal weights.
+    - `rebalance_on` (*str*): Rebalancing frequency: `"none"`, `"months"`, `"quarters"`, `"years"`.
+- **Example**:
+```python
+port_ret = pa.return_portfolio(returns, weights=[0.6, 0.4], rebalance_on="quarters")
+```
+
+### 2. Risk Metrics
+
+#### `max_drawdown(R, geometric=True)`
+Calculate the maximum peak-to-trough loss.
+- **Parameters**:
+    - `R` (*pd.Series* or *pd.DataFrame*): Asset returns.
+    - `geometric` (*bool*): Whether to use geometric returns for the equity curve.
+- **Example**:
+```python
+mdd = pa.max_drawdown(returns)
+```
+
+#### `var_modified(R, p=0.95)`
+Calculate Modified (Cornish-Fisher) Value at Risk (VaR). Adjusts for skewness and kurtosis.
+- **Parameters**:
+    - `R` (*pd.Series* or *pd.DataFrame*): Asset returns.
+    - `p` (*float*): Confidence level (default 0.95).
+- **Example**:
+```python
+m_var = pa.var_modified(returns, p=0.99)
+```
+
+#### `tracking_error(Ra, Rb, scale=None)`
+Calculate the annualized standard deviation of excess returns relative to a benchmark.
+- **Parameters**:
+    - `Ra` (*pd.Series* or *pd.DataFrame*): Asset returns.
+    - `Rb` (*pd.Series* or *pd.DataFrame*): Benchmark returns.
+- **Example**:
+```python
+te = pa.tracking_error(returns, benchmark_returns)
+```
+
+### 3. Performance Ratios
+
+#### `sharpe_ratio(R, Rf=0, p=0.95, FUN="StdDev", annualize=False)`
+Calculate the Sharpe Ratio (return per unit of risk).
+- **Parameters**:
+    - `Rf` (*float* or *pd.Series*): Risk-free rate.
+    - `FUN` (*str*): Risk measure to use: `"StdDev"`, `"VaR"`, `"ES"`, or `"SemiSD"`.
+- **Example**:
+```python
+# Traditional Sharpe
+sr = pa.sharpe_ratio(returns, Rf=0.02/12, annualize=True)
+# Modified VaR-based Sharpe
+sr_mod = pa.sharpe_ratio(returns, FUN="VaR")
+```
+
+#### `sortino_ratio(R, MAR=0)`
+Calculate the Sortino Ratio (excess return per unit of downside risk).
+- **Parameters**:
+    - `MAR` (*float*): Minimum Acceptable Return (default 0).
+- **Example**:
+```python
+sortino = pa.sortino_ratio(returns, MAR=0.05/12)
+```
+
+#### `omega_ratio(R, L=0)`
+Calculate the Omega Ratio (probability-weighted gain vs loss).
+- **Parameters**:
+    - `L` (*float*): The threshold return (Level).
+- **Example**:
+```python
+omega = pa.omega_ratio(returns, L=0)
+```
+
+### 4. Summary Tables
+
+#### `table_stats(R, ci=0.95, digits=4)`
+Comprehensive returns summary including mean, median, std dev, skewness, kurtosis, and confidence intervals.
+- **Example**:
+```python
+stats = pa.table_stats(returns)
+print(stats)
+```
+
+#### `table_downside_risk_ratio(R, MAR=0, scale=None)`
+Summary table of downside risk metrics: Downside Deviation, Omega, Sortino, etc.
+- **Example**:
+```python
+downside_table = pa.table_downside_risk_ratio(returns, MAR=0)
+```
+
+#### `table_capture_ratios(Ra, Rb, digits=4)`
+Calculate Up and Down Capture ratios relative to a benchmark.
+- **Example**:
+```python
+capture_table = pa.table_capture_ratios(returns, benchmark)
+```
 
 ## Verification
 
@@ -80,3 +172,7 @@ Every function is verified against the R `PerformanceAnalytics` implementation u
 ```bash
 uv run pytest
 ```
+
+## License
+
+This project is licensed under the GPL-2.0-or-later License - see the LICENSE file for details (matches original R PerformanceAnalytics).
