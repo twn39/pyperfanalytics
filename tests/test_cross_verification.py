@@ -10,6 +10,9 @@ import pyperfanalytics as pa
     ("test_data_v2", "r_benchmarks_v2", "QQQ", "QQQ"),
     ("test_data_v2", "r_benchmarks_v2", "IWM", "QQQ"),
     ("test_data_v2", "r_benchmarks_v2", "EEM", "QQQ"),
+    ("test_data_v3", "r_benchmarks_v3", "TSLA", "QQQ"),
+    ("test_data_v3", "r_benchmarks_v3", "NVDA", "QQQ"),
+    ("test_data_v3", "r_benchmarks_v3", "AMD", "QQQ"),
 ])
 def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     data = request.getfixturevalue(dataset_f)

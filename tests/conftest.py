@@ -71,3 +71,25 @@ def r_benchmarks_v2():
         pytest.skip("R benchmarks v2 not found. Run scripts/generate_r_benchmarks_v2.R first.")
     with open(path, "r") as f:
         return json.load(f)
+
+@pytest.fixture
+def test_data_v3():
+    """Fixture to load yfinance ETF dataset v3 (Tech/High Vol)."""
+    import os
+    path = "data/test_data_v3.csv"
+    if not os.path.exists(path):
+        pytest.skip("Test data v3 not found.")
+    data = pd.read_csv(path, index_col=0)
+    data.index = pd.to_datetime(data.index)
+    return data
+
+@pytest.fixture
+def r_benchmarks_v3():
+    """Fixture to load R benchmarks for the ETF dataset v3."""
+    import json
+    import os
+    path = "data/r_benchmarks_v3.json"
+    if not os.path.exists(path):
+        pytest.skip("R benchmarks v3 not found.")
+    with open(path, "r") as f:
+        return json.load(f)
