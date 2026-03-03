@@ -1,0 +1,1037 @@
+import pandas as pd
+import numpy as np
+from typing import Union, Optional
+from pyperfanalytics.returns import (
+    return_excess,
+    return_annualized,
+    std_dev_annualized,
+    downside_deviation,
+    semi_deviation,
+    sharpe_ratio,
+    active_premium,
+    information_ratio,
+    treynor_ratio,
+    capm_alpha,
+    gain_deviation,
+    loss_deviation,
+    up_down_ratios,
+    up_capture,
+    down_capture,
+    upside_risk,
+    volatility_skewness,
+    _get_scale,
+    prob_sharpe_ratio,
+    mean_absolute_deviation,
+    downside_potential,
+    sortino_ratio,
+    upside_potential_ratio,
+    upside_potential,
+    upside_risk,
+    kelly_ratio,
+    sterling_ratio,
+    calmar_ratio,
+    burke_ratio,
+    pain_ratio,
+    martin_ratio,
+    omega_sharpe_ratio,
+    omega_ratio
+)
+from pyperfanalytics.risk import (
+    tracking_error,
+    capm_beta,
+    var_historical,
+    es_historical,
+    var_modified,
+    es_modified,
+    systematic_risk,
+    specific_risk,
+    total_risk,
+    herfindahl_index,
+    ulcer_index,
+    pain_index
+)
+from pyperfanalytics.utils import (
+    centered_moment,
+    skewness,
+    kurtosis,
+    co_skewness,
+    co_kurtosis,
+    beta_co_variance,
+    beta_co_skewness,
+    beta_co_kurtosis,
+    _get_scale as _get_utils_scale
+)
+from pyperfanalytics.drawdowns import (
+    drawdowns,
+    find_drawdowns,
+    sort_drawdowns,
+    max_drawdown
+)
+from scipy.stats import pearsonr, t
+from statsmodels.tsa.stattools import acf
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+def table_annualized_returns(
+    R: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    geometric: bool = True,
+    digits: int = 6
+) -> pd.DataFrame:
+    """
+    Annualized Returns Summary: Statistics and Stylized Facts
+    
+    Table of Annualized Return, Annualized Std Dev, and Annualized Sharpe
+    """
+    if scale is None:
+        scale = _get_scale(R)
+    
+    # Calculate components
+    ann_ret = return_annualized(R, scale=scale, geometric=geometric)
+    ann_std = std_dev_annualized(R, scale=scale)
+    
+    # Rf label for the row name
+    rf_mean = Rf.mean() * scale if isinstance(Rf, (pd.Series, pd.DataFrame)) else Rf * scale
+    sharpe_label = f"Annualized Sharpe (Rf={rf_mean*100:.1f}%)"
+    
+    ann_sharpe = sharpe_ratio(R, Rf=Rf, annualize=True, scale=scale)
+    
+    # Combine into a table
+    if isinstance(R, pd.Series):
+        res = pd.DataFrame({
+            R.name or "Value": [ann_ret, ann_std, ann_sharpe]
+        })
+    else:
+        res = pd.DataFrame([ann_ret, ann_std, ann_sharpe])
+    
+    res.index = ["Annualized Return", "Annualized Std Dev", sharpe_label]
+    
+    return res.round(digits)
+
+def table_capm(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Single Factor Asset-Pricing Model Summary: Statistics and Stylized Facts
+    """
+    if scale is None:
+        scale = _get_scale(Ra)
+
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    results = []
+    for rb_col in rb_cols:
+        for ra_col in ra_cols:
+            # Align
+            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            if merged.empty:
+                results.append([np.nan] * 13)
+                continue
+                
+            xRa = return_excess(merged.iloc[:, 0], Rf)
+            xRb = return_excess(merged.iloc[:, 1], Rf)
+            
+            # Regression components
+            alpha = capm_alpha(merged.iloc[:, 0], merged.iloc[:, 1], Rf)
+            beta = capm_beta(merged.iloc[:, 0], merged.iloc[:, 1], Rf)
+            
+            # Use excess returns for correlation and R-squared
+            corr, p_val = pearsonr(xRa, xRb)
+            r2 = corr ** 2
+            
+            # Ann Alpha
+            ann_alpha = (1 + alpha)**scale - 1
+            
+            # Beta+ / Beta- (Bull/Bear Beta)
+            # R's CAPM.beta.bull: returns from Ra where excess benchmark return > 0
+            # Reference: CAPM.beta.R calls getResults with xRa, xRb and subsets based on xRb
+            beta_plus = capm_beta(merged.iloc[:, 0][xRb > 0], merged.iloc[:, 1][xRb > 0], Rf)
+            beta_minus = capm_beta(merged.iloc[:, 0][xRb <= 0], merged.iloc[:, 1][xRb <= 0], Rf)
+            
+            te = tracking_error(merged.iloc[:, 0], merged.iloc[:, 1], scale=scale)
+            ap = active_premium(merged.iloc[:, 0], merged.iloc[:, 1], scale=scale)
+            ir = information_ratio(merged.iloc[:, 0], merged.iloc[:, 1], scale=scale)
+            tr = treynor_ratio(merged.iloc[:, 0], merged.iloc[:, 1], Rf=Rf, scale=scale)
+            
+            row = [
+                alpha, beta, beta_plus, beta_minus,
+                r2, ann_alpha, corr, p_val,
+                te, ap, ir, tr
+            ]
+            results.append(row)
+
+    znames = [
+        "Alpha", "Beta", "Beta+", "Beta-",
+        "R-squared", "Annualized Alpha", "Correlation", "Correlation p-value",
+        "Tracking Error", "Active Premium", "Information Ratio", "Treynor Ratio"
+    ]
+    
+    res_df = pd.DataFrame(results).T
+    res_df.index = znames
+    
+    # Column names: asset to benchmark
+    col_names = []
+    for rb_col in rb_cols:
+        for ra_col in ra_cols:
+            col_names.append(f"{ra_col} to {rb_col}")
+    res_df.columns = col_names
+    
+    return res_df.round(digits)
+
+def table_downside_risk(
+    R: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    MAR: float = 0.1/12.0,
+    p: float = 0.95,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Downside Risk Summary: Statistics and Stylized Facts
+    """
+    if scale is None:
+        scale = _get_scale(R)
+        
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    
+    # Fetch Rf mean for label
+    if isinstance(Rf, (pd.Series, pd.DataFrame)):
+        rf_val = Rf.mean()
+    else:
+        rf_val = Rf
+
+    results = []
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 11)
+            continue
+            
+        z = [
+            semi_deviation(x),
+            gain_deviation(x),
+            loss_deviation(x),
+            downside_deviation(x, MAR=MAR),
+            downside_deviation(x, MAR=rf_val),
+            downside_deviation(x, MAR=0),
+            max_drawdown(x),
+            -var_historical(x, p=p),
+            -es_historical(x, p=p),
+            -var_modified(x, p=p),
+            -es_modified(x, p=p)
+        ]
+        results.append(z)
+        
+    znames = [
+        "Semi Deviation",
+        "Gain Deviation",
+        "Loss Deviation",
+        f"Downside Deviation (MAR={MAR*scale*100:.1f}%)",
+        f"Downside Deviation (Rf={rf_val*scale*100:.1f}%)",
+        "Downside Deviation (0%)",
+        "Maximum Drawdown",
+        f"Historical VaR ({p*100:.0f}%)",
+        f"Historical ES ({p*100:.0f}%)",
+        f"Modified VaR ({p*100:.0f}%)",
+        f"Modified ES ({p*100:.0f}%)"
+    ]
+    
+    res_df = pd.DataFrame(results).T
+    res_df.index = znames
+    res_df.columns = columns
+    
+    return res_df.round(digits)
+
+def table_capture_ratios(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Calculate and display a table of capture ratio and related statistics.
+    """
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    # R implementation of table.CaptureRatios seems to only use the FIRST Rb column
+    # if Rb is a matrix. "merged.assets = merge(Ra[,column.a,drop=FALSE], Rb[,1,drop=FALSE])"
+    # However, we can make it more flexible and supporting multiple Rb if needed.
+    # For now, let's stick to R's behavior (first Rb if many).
+    benchmark_col = rb_cols[0]
+    
+    results = []
+    for ra_col in ra_cols:
+        uc = up_capture(ra_df[ra_col], rb_df[benchmark_col])
+        dc = down_capture(ra_df[ra_col], rb_df[benchmark_col])
+        results.append([uc, dc])
+        
+    res_df = pd.DataFrame(results, index=ra_cols, columns=["Up Capture", "Down Capture"])
+    return res_df.round(digits)
+
+def table_up_down_ratios(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Calculate and display a table of up and down market statistics.
+    """
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    # Again, R implementation uses first Rb
+    benchmark_col = rb_cols[0]
+    
+    results = []
+    for ra_col in ra_cols:
+        metrics = []
+        for side in ["Up", "Down"]:
+            for method in ["Capture", "Number", "Percent"]:
+                val = up_down_ratios(ra_df[ra_col], rb_df[benchmark_col], method=method, side=side)
+                metrics.append(val)
+        results.append(metrics)
+        
+    znames = [
+        "Up Capture", "Up Number", "Up Percent",
+        "Down Capture", "Down Number", "Down Percent"
+    ]
+    
+    res_df = pd.DataFrame(results, index=ra_cols, columns=znames)
+    # R returns t(result) if multi-column, so assets are columns?
+    # Actually, in table.CaptureRatios, assets are ROWS.
+    # Let's check table.UpDownRatios.R: result.df is assets as rows.
+    # But then result.df = round(result.df, digits) and return(result.df)
+    
+    return res_df.round(digits)
+
+def table_calendar_returns(
+    R: Union[pd.Series, pd.DataFrame],
+    digits: int = 1,
+    as_perc: bool = True,
+    geometric: bool = True
+) -> pd.DataFrame:
+    """
+    Monthly and Calendar year Return table.
+    """
+    if isinstance(R, pd.DataFrame):
+        # PerformanceAnalytics defaults to first column if many
+        s = R.iloc[:, 0]
+    else:
+        s = R
+        
+    s = s.dropna()
+    if s.empty: return pd.DataFrame()
+    
+    # Create Year x Month pivot
+    df = s.to_frame()
+    df['Year'] = df.index.year
+    df['Month'] = df.index.month
+    
+    # Map month numbers to short names
+    month_map = {
+        1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
+        7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+    }
+    df['MonthName'] = df['Month'].map(month_map)
+    
+    # Pivot
+    pivot = df.pivot(index='Year', columns='MonthName', values=s.name or 'Returns')
+    
+    # Reorder columns
+    ordered_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Ensure all months exist in columns for reindexing
+    pivot = pivot.reindex(columns=ordered_months)
+    
+    # Calculate Year totals
+    def _calc_year(row: pd.Series, geom: bool) -> float:
+        vals = row.dropna()
+        if vals.empty: return np.nan
+        if geom:
+            return (1 + vals).prod() - 1
+        else:
+            return vals.sum()
+            
+    year_col = pivot.apply(_calc_year, axis=1, geom=geometric)
+    pivot[s.name or 'Returns'] = year_col
+    
+    multiplier = 100.0 if as_perc else 1.0
+    return (pivot * multiplier).round(digits)
+
+def table_higher_moments(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Higher Moments Summary: Statistics and Stylized Facts (Co-Moments).
+    Matches R's table.HigherMoments.
+    """
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    results = []
+    col_names = []
+    
+    for rb_col in rb_cols:
+        for ra_col in ra_cols:
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+            
+            row = [
+                co_skewness(a, b),
+                co_kurtosis(a, b),
+                beta_co_variance(a, b),
+                beta_co_skewness(a, b),
+                beta_co_kurtosis(a, b)
+            ]
+            results.append(row)
+            col_names.append(f"{ra_col} to {rb_col}")
+            
+    znames = [
+        "CoSkewness", "CoKurtosis", "Beta CoVariance",
+        "Beta CoSkewness", "Beta CoKurtosis"
+    ]
+    
+    res_df = pd.DataFrame(results).T
+    res_df.index = znames
+    res_df.columns = col_names
+    
+    return res_df.round(digits)
+
+def table_prob_skewness_kurtosis(
+    R: Union[pd.Series, pd.DataFrame],
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Summary table for univariate skewness and kurtosis methods.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    results = []
+    
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 8)
+            continue
+            
+        row = [
+            skewness(x, method="moment"),
+            skewness(x, method="fisher"),
+            skewness(x, method="sample"),
+            kurtosis(x, method="moment"),
+            kurtosis(x, method="fisher"),
+            kurtosis(x, method="sample"),
+            kurtosis(x, method="excess"),
+            kurtosis(x, method="sample_excess")
+        ]
+        results.append(row)
+        
+    znames = [
+        "Skewness (moment)", "Skewness (fisher)", "Skewness (sample)",
+        "Kurtosis (moment)", "Kurtosis (fisher)", "Kurtosis (sample)",
+        "Kurtosis (excess)", "Kurtosis (sample_excess)"
+    ]
+    
+    res_df = pd.DataFrame(results).T
+    res_df.index = znames
+    res_df.columns = columns
+    
+    return res_df.round(digits)
+
+def table_variability(
+    R: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    geometric: bool = True,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Variability Summary: Statistics and Stylized Facts.
+    Matches R's table.Variability.
+    """
+    if scale is None:
+        scale = _get_scale(R)
+        
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    results = []
+    
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 3)
+            continue
+            
+        mad = mean_absolute_deviation(x)
+        
+        ann_std = std_dev_annualized(x, scale=scale)
+        period_std = ann_std / np.sqrt(scale)
+        
+        results.append([mad, period_std, ann_std])
+        
+    znames = ["Mean Absolute deviation", "Period Std Dev", "Annualized Std Dev"]
+    
+    res_df = pd.DataFrame(results).T
+    res_df.index = znames
+    res_df.columns = columns
+    
+    return res_df.round(digits)
+
+def table_drawdowns(
+    R: pd.Series, 
+    top: int = 5, 
+    digits: int = 4, 
+    geometric: bool = True
+) -> pd.DataFrame:
+    """
+    Worst Drawdowns Summary: Statistics and Stylized Facts.
+    Matches R's table.Drawdowns.
+    """
+    # PerformanceAnalytics' table.Drawdowns only works for single column
+    if isinstance(R, pd.DataFrame):
+        if R.shape[1] > 1:
+            R = R.iloc[:, 0]
+        else:
+            R = R.iloc[:, 0]
+
+    R_clean = R.dropna()
+    runs = find_drawdowns(R_clean, geometric=geometric)
+    sorted_runs = sort_drawdowns(runs)
+    
+    n_drawdowns = sum(sorted_runs["return"] < 0)
+    if n_drawdowns < top:
+        top = n_drawdowns
+        
+    if top == 0:
+        return pd.DataFrame(columns=["From", "Trough", "To", "Depth", "Length", "To Trough", "Recovery"])
+
+    # Extract dates
+    idx = R_clean.index
+    
+    # from, trough, to are 1-based indices from find_drawdowns
+    from_dates = idx[sorted_runs["from"][:top] - 1]
+    trough_dates = idx[sorted_runs["trough"][:top] - 1]
+    
+    # Recovery check: in PA, if the last drawdown is not recovered, 'To' is NA
+    to_indices = sorted_runs["to"][:top]
+    to_dates = []
+    recovery_periods = []
+    
+    dd_series = drawdowns(R_clean, geometric=geometric)
+    
+    for i in range(top):
+        end_idx_1 = to_indices[i]
+        end_idx_0 = end_idx_1 - 1
+        
+        # In findDrawdowns.R, to_idx = i_1 + 1 happens after val is processed.
+        # If the series ends at n, the last sequence has to_idx = n + 1.
+        if end_idx_1 > len(R_clean):
+            to_dates.append(np.nan)
+            recovery_periods.append(np.nan)
+        else:
+            to_dates.append(idx[end_idx_0])
+            recovery_periods.append(sorted_runs["recovery"][i])
+
+    result = pd.DataFrame({
+        "From": from_dates,
+        "Trough": trough_dates,
+        "To": to_dates,
+        "Depth": np.round(sorted_runs["return"][:top], digits),
+        "Length": sorted_runs["length"][:top],
+        "To Trough": sorted_runs["peaktotrough"][:top],
+        "Recovery": recovery_periods
+    })
+    
+    return result
+
+def table_information_ratio(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Information ratio Summary: Statistics and Stylized Facts
+    Table of Tracking error, Annualised tracking error and Information ratio.
+    """
+    if scale is None:
+        scale = _get_utils_scale(Ra)
+
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    ra_cols = ra_df.columns
+    
+    results = []
+    for col in ra_cols:
+        # periodic tracking error
+        # R: TrackingError(y[,column,drop=FALSE],Rb)/sqrt(scale)
+        te_periodic = tracking_error(ra_df[col], Rb, scale=1.0) # scale=1 for periodic
+        te_annual = tracking_error(ra_df[col], Rb, scale=scale)
+        ir = information_ratio(ra_df[col], Rb, scale=scale)
+        
+        results.append([te_periodic, te_annual, ir])
+        
+    znames = ["Tracking Error", "Annualised Tracking Error", "Information Ratio"]
+    res_df = pd.DataFrame(results, index=ra_cols, columns=znames).T
+    return res_df.round(digits)
+
+def table_specific_risk(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Specific risk Summary: Statistics and Stylized Facts
+    Table of specific risk, systematic risk and total risk.
+    """
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    ra_cols = ra_df.columns
+    
+    results = []
+    for col in ra_cols:
+        spec = specific_risk(ra_df[col], Rb, Rf=Rf)
+        sys = systematic_risk(ra_df[col], Rb, Rf=Rf)
+        tot = total_risk(ra_df[col], Rb, Rf=Rf)
+        results.append([spec, sys, tot])
+        
+    znames = ["Specific Risk", "Systematic Risk", "Total Risk"]
+    res_df = pd.DataFrame(results, index=ra_cols, columns=znames).T
+    return res_df.round(digits)
+
+def table_prob_sharpe_ratio(
+    R: Union[pd.Series, pd.DataFrame],
+    refSR: Union[float, list, np.ndarray] = 0.0,
+    Rf: float = 0.0,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Summary table for Probabilistic Sharpe Ratio across different thresholds.
+    """
+    if isinstance(refSR, (float, int, np.float64, np.int64)):
+        refSR = [refSR]
+        
+    if isinstance(R, pd.Series):
+        ra_df = R.to_frame()
+    else:
+        ra_df = R
+        
+    ra_cols = ra_df.columns
+    
+    final_results = []
+    for rsr in refSR:
+        row = prob_sharpe_ratio(ra_df, refSR=rsr, Rf=Rf)
+        final_results.append(row)
+        
+    res_df = pd.DataFrame(final_results, index=[f"PSR (refSR={round(r, 4)})" for r in refSR])
+    return res_df.round(digits)
+
+
+def table_autocorrelation(
+    R: Union[pd.Series, pd.DataFrame],
+    digits: int = 4,
+    max_lag: int = 6
+) -> pd.DataFrame:
+    """
+    Table for calculating the first six (default) autocorrelation coefficients and significance.
+    Produces data table of autocorrelation coefficients rho and corresponding Q(max_lag)-statistic.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+
+    columns = r_df.columns
+    results = []
+    
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * (max_lag + 1))
+            continue
+            
+        # acf returns lags [0, 1, ..., max_lag]. R's table starts from lag 1.
+        # statsmodels.acf uses fft by default, PerformanceAnalytics uses acf() which defaults to correlation.
+        # acf(y, plot=FALSE, lag.max=max.lag)[[1]] in R gives autocorrelation.
+        rho = acf(x, nlags=max_lag, fft=False)[1:]
+        
+        # Ljung-Box test
+        lb = acorr_ljungbox(x, lags=[max_lag], return_df=True)
+        p_val = lb['lb_pvalue'].iloc[0]
+        
+        row = list(rho) + [p_val]
+        results.append(row)
+        
+    znames = [f"rho {i+1}" for i in range(max_lag)] + [f"Q({max_lag}) p-value"]
+    res_df = pd.DataFrame(results, index=columns, columns=znames).T
+    
+    return res_df.round(digits)
+
+
+def table_correlation(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    digits: int = 4,
+    conf_level: float = 0.95
+) -> pd.DataFrame:
+    """
+    Calculate correlations and significance of multicolumn data.
+    """
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    results = []
+    row_names = []
+    
+    for ra_col in ra_cols:
+        for rb_col in rb_cols:
+            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            if merged.empty:
+                results.append([np.nan] * 4)
+                row_names.append(f"{ra_col} to {rb_col}")
+                continue
+                
+            x = merged.iloc[:, 0]
+            y = merged.iloc[:, 1]
+            n = len(x)
+            
+            corr, p_val = pearsonr(x, y)
+            
+            # Confidence interval for Pearson correlation
+            # stderr = 1 / sqrt(n - 3)
+            # z = 0.5 * log((1 + r) / (1 - r))
+            # ucl = tanh(z + qnorm(1 - alpha/2) * stderr)
+            if n > 3:
+                z = 0.5 * np.log((1 + corr) / (1 - corr))
+                z_crit = t.ppf((1 + conf_level) / 2, n - 2) # R uses normal distribution for large n, but t is safer
+                # Actually R's cor.test uses t for Pearson
+                # R: r * sqrt(df / (1 - r^2)) ~ t(df)
+                # For CI: Fisher's Z-transform
+                stderr = 1.0 / np.sqrt(n - 3)
+                z_crit_norm = -t.ppf((1 - conf_level) / 2, float('inf')) # Using normal for Z-transform
+                lower_z = z - z_crit_norm * stderr
+                upper_z = z + z_crit_norm * stderr
+                lower_r = np.tanh(lower_z)
+                upper_r = np.tanh(upper_z)
+            else:
+                lower_r = upper_r = np.nan
+                
+            results.append([corr, p_val, lower_r, upper_r])
+            row_names.append(f"{ra_col} to {rb_col}")
+            
+    res_df = pd.DataFrame(results, index=row_names, columns=["Correlation", "p-value", "Lower CI", "Upper CI"])
+    return res_df.round(digits)
+
+
+def table_distributions(
+    R: Union[pd.Series, pd.DataFrame],
+    scale: Optional[int] = None,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Distributions Summary: Statistics and Stylized Facts.
+    Table of standard deviation, Skewness, Kurtosis, etc.
+    """
+    if scale is None:
+        scale = _get_utils_scale(R)
+        
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    # Get scale string (e.g., 'monthly')
+    freq_map = {252: "Daily", 52: "Weekly", 12: "Monthly", 4: "Quarterly", 1: "Yearly"}
+    freq_str = freq_map.get(scale, "Period")
+    
+    results = []
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 6)
+            continue
+            
+        # R logic: StdDev.annualized(y)/sqrt(scale)
+        period_std = std_dev_annualized(x, scale=scale) / np.sqrt(scale)
+        
+        row = [
+            period_std,
+            skewness(x, method="moment"),
+            kurtosis(x, method="moment"),
+            kurtosis(x, method="excess"),
+            skewness(x, method="sample"),
+            kurtosis(x, method="sample_excess")
+        ]
+        results.append(row)
+        
+    znames = [f"{freq_str} Std Dev", "Skewness", "Kurtosis", "Excess kurtosis", "Sample skewness", "Sample excess kurtosis"]
+    res_df = pd.DataFrame(results, index=columns, columns=znames).T
+    
+    return res_df.round(digits)
+
+
+def table_downside_risk_ratio(
+    R: Union[pd.Series, pd.DataFrame],
+    MAR: float = 0,
+    scale: Optional[int] = None,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Downside Summary: Statistics and ratios.
+    Table of downside risk, Annualised downside risk, Downside potential, etc.
+    """
+    if scale is None:
+        scale = _get_utils_scale(R)
+        
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    # Get scale string (e.g., 'monthly')
+    freq_map = {252: "Daily", 52: "Weekly", 12: "Monthly", 4: "Quarterly", 1: "Yearly"}
+    freq_str = freq_map.get(scale, "Period")
+    
+    results = []
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 8)
+            continue
+            
+        dd = downside_deviation(x, MAR=MAR)
+        dp = downside_potential(x, MAR=MAR)
+        # Omega = UpsidePotential / DownsidePotential
+        om = omega_ratio(x, L=MAR)
+        sr = sortino_ratio(x, MAR=MAR)
+        up = upside_potential(x, MAR=MAR)
+        upr = upside_potential_ratio(x, MAR=MAR)
+        osr = omega_sharpe_ratio(x, MAR=MAR)
+        
+        row = [
+            dd,
+            dd * np.sqrt(scale),
+            dp,
+            om,
+            sr,
+            up,
+            upr,
+            osr
+        ]
+        results.append(row)
+        
+    znames = [
+        f"{freq_str} downside risk", "Annualised downside risk", "Downside potential",
+        "Omega", "Sortino ratio", "Upside potential", "Upside potential ratio",
+        "Omega-sharpe ratio"
+    ]
+    res_df = pd.DataFrame(results, index=columns, columns=znames).T
+    
+    return res_df.round(digits)
+
+
+def table_drawdowns_ratio(
+    R: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
+    scale: Optional[int] = None,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Drawdowns Summary: Statistics and ratios.
+    Table of Sterling ratio, Calmar ratio, Burke ratio, etc.
+    """
+    if scale is None:
+        scale = _get_utils_scale(R)
+        
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    results = []
+    
+    for col in columns:
+        x = r_df[col].dropna()
+        if x.empty:
+            results.append([np.nan] * 7)
+            continue
+            
+        ster = sterling_ratio(x, scale=scale)
+        calm = calmar_ratio(x, scale=scale)
+        burk = burke_ratio(x, Rf=Rf)
+        pain_idx = pain_index(x)
+        ulcer = ulcer_index(x)
+        pr = pain_ratio(x, Rf=Rf)
+        mr = martin_ratio(x, Rf=Rf)
+        
+        row = [ster, calm, burk, pain_idx, ulcer, pr, mr]
+        results.append(row)
+        
+    znames = ["Sterling ratio", "Calmar ratio", "Burke ratio", "Pain index", "Ulcer index", "Pain ratio", "Martin ratio"]
+    res_df = pd.DataFrame(results, index=columns, columns=znames).T
+    
+    return res_df.round(digits)
+
+
+def table_stats(
+    R: Union[pd.Series, pd.DataFrame],
+    ci: float = 0.95,
+    digits: int = 4
+) -> pd.DataFrame:
+    """
+    Returns Summary: Statistics and Stylized Facts.
+    R equivalent: table.Stats or table.MonthlyReturns.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R
+        
+    columns = r_df.columns
+    results = []
+    
+    for col in columns:
+        x_orig = r_df[col]
+        x = x_orig.dropna()
+        n = len(x)
+        n_na = len(x_orig) - n
+        
+        if n == 0:
+            results.append([0, n_na] + [np.nan] * 14)
+            continue
+            
+        mn = x.mean()
+        sd = x.std(ddof=1)
+        var = x.var(ddof=1)
+        
+        # Confidence Level
+        se_mean = sd / np.sqrt(n)
+        if n > 1:
+            # -t.ppf is because we want the positive value of t
+            t_crit = -t.ppf((1 - ci) / 2, n - 1)
+            lcl = mn - se_mean * t_crit
+            ucl = mn + se_mean * t_crit
+        else:
+            lcl = ucl = np.nan
+            
+        # Geometric Mean
+        if (x <= -1).any():
+            geom_mean = np.nan
+        else:
+            geom_mean = np.exp(np.log(1 + x).mean()) - 1
+            
+        row = [
+            n,
+            n_na,
+            x.min(),
+            x.quantile(0.25),
+            x.median(),
+            mn,
+            geom_mean,
+            x.quantile(0.75),
+            x.max(),
+            se_mean,
+            lcl,
+            ucl,
+            var,
+            sd,
+            skewness(x),
+            kurtosis(x)
+        ]
+        results.append(row)
+        
+    znames = [
+        "Observations", "NAs", "Minimum", "Quartile 1", "Median", "Arithmetic Mean",
+        "Geometric Mean", "Quartile 3", "Maximum", "SE Mean",
+        f"LCL Mean ({ci})", f"UCL Mean ({ci})", "Variance", "Stdev", "Skewness", "Kurtosis"
+    ]
+    
+    res_df = pd.DataFrame(results, index=columns, columns=znames).T
+    return res_df.round(digits)
+
+
+# Alias for compatibility with implementation plan
+table_monthly_returns = table_stats
