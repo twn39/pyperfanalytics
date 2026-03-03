@@ -7,14 +7,11 @@ def generate_data():
     tickers = ["QQQ", "IWM", "EEM", "BIL"]
     print(f"Fetching data for {tickers}...")
     
-    # Download 5 years of daily data
-    data = yf.download(tickers, start="2019-01-01", end="2024-01-01")
+    # Download daily data to 2026
+    raw = yf.download(tickers, start="2019-01-01", end="2026-03-01")
     
-    # Try to get 'Adj Close', fallback to 'Close'
-    if 'Adj Close' in data.columns.levels[0]:
-        prices = data['Adj Close']
-    else:
-        prices = data['Close']
+    # yfinance multi-index formatting workaround
+    prices = raw.xs('Close', level=0, axis=1)
     
     # Calculate daily returns
     returns = prices.pct_change().dropna()

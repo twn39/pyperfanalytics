@@ -5,10 +5,11 @@ library(jsonlite)
 df <- read.csv("data/test_data_v3.csv", row.names=1)
 data_xts <- as.xts(df, order.by=as.Date(rownames(df)))
 
-# Assets: TSLA, NVDA, AMD
+# Assets: TSLA, NVDA, AMD, BRK.A
 # Benchmark: QQQ
 # Rf: BIL
-Ra <- data_xts[, c("TSLA", "NVDA", "AMD")]
+# Note: read.csv changes "BRK-A" column name to "BRK.A"
+Ra <- data_xts[, c("TSLA", "NVDA", "AMD", "BRK.A")]
 Rb <- data_xts[, "QQQ"]
 Rf <- data_xts[, "BIL"]
 

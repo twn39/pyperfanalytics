@@ -4,7 +4,7 @@ import pandas as pd
 def main():
     tickers = ['SPY', 'GLD', 'TLT']
     print(f"Downloading {tickers} from Yahoo Finance...")
-    raw = yf.download(tickers, start="2015-01-01", end="2020-01-01")
+    raw = yf.download(tickers, start="2015-01-01", end="2026-03-01")
     # yfinance returns MultiIndex columns: level 0 is 'Price', level 1 is 'Ticker'
     data = raw.xs('Close', level=0, axis=1)
     

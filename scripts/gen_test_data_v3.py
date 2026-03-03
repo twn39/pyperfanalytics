@@ -3,12 +3,12 @@ import pandas as pd
 import os
 
 def generate_data():
-    # Tech/High Volatility Tickers: TSLA, NVDA, AMD (Assets), QQQ (Benchmark), BIL (Rf)
-    tickers = ["TSLA", "NVDA", "AMD", "QQQ", "BIL"]
+    # Tech/High Volatility + High Price Tickers: TSLA, NVDA, AMD, BRK-A (Assets), QQQ (Benchmark), BIL (Rf)
+    tickers = ["TSLA", "NVDA", "AMD", "BRK-A", "QQQ", "BIL"]
     print(f"Fetching data for {tickers}...")
     
-    # Download 4 years of daily data
-    raw = yf.download(tickers, start="2020-01-01", end="2024-01-01")
+    # Download 5+ years of daily data
+    raw = yf.download(tickers, start="2020-01-01", end="2026-03-01")
     
     # yfinance multi-index formatting workaround
     prices = raw.xs('Close', level=0, axis=1)
