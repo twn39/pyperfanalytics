@@ -34,10 +34,12 @@ def return_excess(R: Union[pd.Series, pd.DataFrame], Rf: Union[float, pd.Series,
         
         # If Rf is a single series, subtract it from all R columns
         if len(rf_cols) == 1:
-            return R.sub(combined[rf_cols[0]], axis=0)
+            res = R.sub(combined[rf_cols[0]], axis=0)
         else:
             # Match columns if possible, or assume 1-to-1 mapping
-            return R.sub(combined[rf_cols].values, axis=0)
+            res = R.sub(combined[rf_cols].values, axis=0)
+        
+        return res.loc[R.index] if isinstance(R, pd.DataFrame) else res[R.index]
             
     return R - Rf
 

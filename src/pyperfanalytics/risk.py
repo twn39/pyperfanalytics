@@ -262,28 +262,7 @@ def pain_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     else:
         return _calc(dp)
 
-def systematic_risk(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
-    """
-    Calculate Systematic Risk.
-    
-    Systematic risk = Beta * Market Risk (SD of benchmark).
-    Annualized.
-    """
-    from pyperfanalytics.returns import std_dev_annualized, return_excess
-    
-    if scale is None:
-        scale = _get_scale(Ra)
-        
-    beta = capm_beta(Ra, Rb, Rf=Rf)
-    xRb = return_excess(Rb, Rf)
-    benchmark_sd = std_dev_annualized(xRb, scale=scale)
-    
-    return beta * benchmark_sd
+
 
 def specific_risk(
     Ra: Union[pd.Series, pd.DataFrame],
@@ -846,8 +825,8 @@ def systematic_risk(
             b = merged.iloc[:, 1]
             
             bta = capm_beta(a, b)
-            # R uses population SD (ddof=0) for SystematicRisk
-            sigm = b.std(ddof=0) * np.sqrt(scale)
+            # R uses sample SD (ddof=1) for SystematicRisk
+            sigm = b.std(ddof=1) * np.sqrt(scale)
             col_results.append(float(bta * sigm))
         results.append(col_results)
         

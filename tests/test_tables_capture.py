@@ -27,7 +27,7 @@ def test_table_up_down_ratios(managers_data):
     
     table = table_up_down_ratios(ra, rb)
     
-    idx = 'HAM1'
+    idx = 'HAM1 to SP500 TR'
     assert table.loc[idx, 'Up Capture'] == pytest.approx(0.6347, abs=1e-4)
     assert table.loc[idx, 'Down Capture'] == pytest.approx(0.2076, abs=1e-4)
     assert table.loc[idx, 'Up Number'] == pytest.approx(0.8941, abs=1e-4)
