@@ -90,9 +90,14 @@ def table_annualized_returns(
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     ann_std = std_dev_annualized(R, scale=scale)
     
-    # Rf label for the row name
-    rf_mean = Rf.mean() * scale if isinstance(Rf, (pd.Series, pd.DataFrame)) else Rf * scale
-    sharpe_label = f"Annualized Sharpe (Rf={rf_mean*100:.1f}%)"
+    # Match R's label rounding: round(mean(Rf)*scale, 4)*100
+    rf_mean_ann = Rf.mean() * scale if isinstance(Rf, (pd.Series, pd.DataFrame)) else Rf * scale
+    # R uses base::round(mean(Rf)*scale, 4) * 100
+    rf_label_val = float(np.round(rf_mean_ann, 4) * 100)
+    # Format as string, stripping trailing zeros if they are after decimal
+    rf_label_str = f"{rf_label_val:g}"
+        
+    sharpe_label = f"Annualized Sharpe (Rf={rf_label_str}%)"
     
     ann_sharpe = sharpe_ratio(R, Rf=Rf, annualize=True, scale=scale)
     
@@ -328,22 +333,23 @@ def table_up_down_ratios(
     results = []
     for ra_col in ra_cols:
         metrics = []
-        for side in ["Up", "Down"]:
-            for method in ["Capture", "Number", "Percent"]:
+        for method in ["Capture", "Number", "Percent"]:
+            for side in ["Up", "Down"]:
                 val = up_down_ratios(ra_df[ra_col], rb_df[benchmark_col], method=method, side=side)
                 metrics.append(val)
         results.append(metrics)
         
     znames = [
-        "Up Capture", "Up Number", "Up Percent",
-        "Down Capture", "Down Number", "Down Percent"
+        "Up Capture", "Down Capture", 
+        "Up Number", "Down Number", 
+        "Up Percent", "Down Percent"
     ]
     
     res_df = pd.DataFrame(results, index=ra_cols, columns=znames)
-    # R returns t(result) if multi-column, so assets are columns?
-    # Actually, in table.CaptureRatios, assets are ROWS.
-    # Let's check table.UpDownRatios.R: result.df is assets as rows.
-    # But then result.df = round(result.df, digits) and return(result.df)
+    
+    # R implementation of table.UpDownRatios appends " to [Bench]" to rownames
+    bench_name = rb_df.columns[0]
+    res_df.index = [f"{asset} to {bench_name}" for asset in res_df.index]
     
     return res_df.round(digits)
 

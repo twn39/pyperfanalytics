@@ -1000,19 +1000,27 @@ def m_squared(
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
-            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+            
+            # Match R's strict NA handling: if any NA, return NA
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+            
+            merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
             
-            a = merged.iloc[:, 0]
-            b = merged.iloc[:, 1]
+            a_clean = merged.iloc[:, 0]
+            b_clean = merged.iloc[:, 1]
             
-            rp = return_annualized(a, scale=scale)
+            rp = return_annualized(a_clean, scale=scale)
             
             # Population standard deviation
-            sigp = a.std(ddof=0) * np.sqrt(scale)
-            sigm = b.std(ddof=0) * np.sqrt(scale)
+            sigp = a_clean.std(ddof=0) * np.sqrt(scale)
+            sigm = b_clean.std(ddof=0) * np.sqrt(scale)
             
             if sigp == 0:
                 m2 = np.nan
@@ -1126,7 +1134,15 @@ def net_selectivity(
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
-            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+            
+            # Match R's strict NA handling
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+                
+            merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
@@ -1285,6 +1301,7 @@ def kappa(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0, l: int = 2) -> Un
         s = s.dropna()
         if len(s) == 0:
             return np.nan
+            
         m = s.mean()
         r_down = s[s < mar]
         denom = ((1 / len(s)) * np.sum((mar - r_down)**L))**(1 / L)
@@ -1428,9 +1445,9 @@ def prospect_ratio(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0) -> Union
     (Sum(pos) + 2.25 * Sum(neg) - MAR) / (DownsideDeviation * n).
     """
     def _calc(s: pd.Series, mar: float) -> float:
+        n_total = len(s)
         s = s.dropna()
-        n = len(s)
-        if n == 0: return np.nan
+        if len(s) == 0: return np.nan
         
         pos = s[s > 0].sum()
         neg = s[s < 0].sum()
@@ -1438,7 +1455,9 @@ def prospect_ratio(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0) -> Union
         dd = downside_deviation(s, MAR=mar, method="full")
         if dd == 0: return np.nan
         
-        return (pos + 2.25 * neg - mar) / (dd * n)
+        # R code: (sum(r1)+2.25*sum(r2)-MAR)/(SigD*n)
+        # where n is length(R) including NAs
+        return (pos + 2.25 * neg - mar) / (dd * n_total)
 
     if isinstance(R, pd.DataFrame):
         return R.apply(_calc, mar=MAR)
@@ -1509,8 +1528,16 @@ def jensen_alpha(
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+            
+            # Match R's strict NA handling
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+                
             # Align
-            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
@@ -1824,3 +1851,214 @@ def to_period_contributions(
     # Add Portfolio Return column
     res["Portfolio Return"] = res.sum(axis=1)
     return res
+
+def return_geltner(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
+    """
+    Calculate Geltner liquidity-adjusted return series.
+    Geltner.returns = (R(t) - R(t-1) * rho) / (1 - rho)
+    where rho is the first-order autocorrelation of the returns.
+    """
+    def _calc(s: pd.Series) -> pd.Series:
+        s_clean = s.dropna()
+        if len(s_clean) < 2:
+            return s
+            
+        # compute first order autocorrelation
+        from statsmodels.tsa.stattools import acf
+        rho = acf(s_clean, nlags=1, fft=False)[1]
+        
+        # calculate geltner series
+        lag_s = s.shift(1)
+        res = (s - lag_s * rho) / (1 - rho)
+        
+        # Keep original indices/NAs for unshiftable portions
+        return res
+
+    if isinstance(R, pd.DataFrame):
+        return R.apply(_calc)
+    else:
+        return _calc(R)
+
+def return_clean(
+    R: Union[pd.Series, pd.DataFrame],
+    method: str = "boudt",
+    alpha: float = 0.01,
+    trim: float = 0.001
+) -> Union[pd.Series, pd.DataFrame]:
+    """
+    Clean extreme observations in a time series to provide robust risk estimates.
+    Robustly clean a time series to reduce the magnitude of observations that exceed 
+    the 1-alpha risk threshold using Minimum Covariance Determinant (MCD).
+    
+    method: "none", "boudt", or "geltner".
+    """
+    if method == "none":
+        return R.copy()
+    elif method == "geltner":
+        return return_geltner(R)
+    elif method == "boudt":
+        from scipy.stats import chi2
+        from sklearn.covariance import MinCovDet
+        
+        if isinstance(R, pd.Series):
+            df = R.to_frame()
+            is_series = True
+        else:
+            df = R
+            is_series = False
+            
+        df_clean = df.dropna()
+        n_obs, n_vars = df_clean.shape
+        
+        if n_obs < 2:
+            return R.copy()
+            
+        try:
+            mcd = MinCovDet(support_fraction=1-alpha).fit(df_clean.values)
+            mu = mcd.raw_location_
+            sigma = mcd.raw_covariance_
+            invSigma = np.linalg.inv(sigma)
+        except Exception:
+            import warnings
+            warnings.warn("Covariance matrix is singular, returning original data.")
+            return R.copy()
+            
+        # 1. Sort the data in function of their extremeness (Mahalanobis distance)
+        diff = df_clean.values - mu
+        d2 = np.sum((diff.dot(invSigma)) * diff, axis=1)
+        
+        # 2. Outlier detection
+        # empirical 1-alpha quantile
+        sorted_d2 = np.sort(d2)
+        idx = int(np.floor((1 - alpha) * n_obs)) - 1 # 0-based index correction
+        if idx < 0:
+            idx = 0
+            
+        empirical_threshold = sorted_d2[idx]
+        chi2_thresh = chi2.ppf(1 - trim, n_vars)
+        
+        # 2.2 Multivariate winsorization
+        res = df.copy()
+        threshold = max(empirical_threshold, chi2_thresh)
+        needs_cleaning = (d2 > empirical_threshold) & (d2 > chi2_thresh)
+        
+        scale_factors = np.sqrt(threshold / d2[needs_cleaning])
+        
+        clean_values = df_clean.values.copy()
+        clean_values[needs_cleaning, :] = clean_values[needs_cleaning, :] * scale_factors[:, None]
+        
+        res.update(pd.DataFrame(clean_values, index=df_clean.index, columns=df_clean.columns))
+        
+        if is_series:
+            return res.iloc[:, 0]
+        else:
+            return res
+    else:
+        raise ValueError(f"Unknown method {method}")
+
+def return_portfolio(
+    R: Union[pd.Series, pd.DataFrame],
+    weights: Optional[Union[pd.Series, pd.DataFrame, list, np.ndarray]] = None,
+    geometric: bool = True,
+    rebalance_on: str = "none"
+) -> pd.Series:
+    """
+    Calculate weighted returns for a portfolio of assets.
+    Supports geometric or arithmetic compounding with optional periodic rebalancing.
+    """
+    if isinstance(R, pd.Series):
+        r_df = R.to_frame()
+    else:
+        r_df = R.copy()
+        
+    if r_df.isna().any().any():
+        import warnings
+        warnings.warn("NAs detected: filling NAs with zeros")
+        r_df = r_df.fillna(0)
+        
+    n_obs, n_cols = r_df.shape
+    r_idx = r_df.index
+    
+    if weights is None:
+        w_arr = np.ones(n_cols) / n_cols
+    else:
+        w_arr = np.array(weights).flatten()
+        if len(w_arr) != n_cols:
+            raise ValueError(f"weights must have {n_cols} elements")
+            
+    ret_arr = r_df.values
+    out_ret = np.zeros(n_obs)
+    
+    # Identify rebalance endpoints
+    if rebalance_on == "none":
+        endpoints = [0, n_obs]
+    else:
+        freq_map = {
+            "years": "YE",
+            "quarters": "QE",
+            "months": "ME",
+            "weeks": "W",
+            "days": "D"
+        }
+        resamp_rule = freq_map.get(rebalance_on)
+        if resamp_rule is None:
+            raise ValueError(f"unsupported rebalance_on: {rebalance_on}")
+            
+        grp = r_df.groupby(pd.Grouper(freq=resamp_rule))
+        
+        endpoints = []
+        for name, g in grp:
+            if not g.empty:
+                start_idx = r_df.index.get_loc(g.index[0])
+                endpoints.append(start_idx)
+        endpoints.append(n_obs)
+        if endpoints[0] != 0:
+            endpoints.insert(0, 0)
+            
+    endpoints = sorted(list(set(endpoints)))
+
+    if geometric:
+        end_value = 1.0
+        bop_value = np.zeros(n_cols)
+        eop_value = np.zeros(n_cols)
+        
+        for i in range(len(endpoints) - 1):
+            start = endpoints[i]
+            end = endpoints[i+1]
+            if start == end: continue
+            
+            for j in range(start, end):
+                if j == start:
+                    bop_value = end_value * w_arr
+                else:
+                    bop_value = eop_value.copy()
+                    
+                eop_value = bop_value * (1 + ret_arr[j, :])
+                eop_value_total = np.sum(eop_value)
+                
+                out_ret[j] = eop_value_total / end_value - 1
+                end_value = eop_value_total
+                
+    else:
+        bop_weights = np.zeros(n_cols)
+        eop_weights = np.zeros(n_cols)
+        
+        for i in range(len(endpoints) - 1):
+            start = endpoints[i]
+            end = endpoints[i+1]
+            if start == end: continue
+            
+            for j in range(start, end):
+                if j == start:
+                    bop_weights = w_arr.copy()
+                else:
+                    bop_weights = eop_weights.copy()
+                    
+                period_contrib = ret_arr[j, :] * bop_weights
+                
+                eop_weights = (period_contrib + bop_weights) / np.sum(period_contrib + bop_weights)
+                out_ret[j] = np.sum(period_contrib)
+
+    res = pd.Series(out_ret, index=r_idx, name="portfolio.returns")
+    return res
+

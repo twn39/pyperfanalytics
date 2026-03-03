@@ -197,8 +197,16 @@ def capm_beta(
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
+            a = xRa[ra_col]
+            b = xRb[rb_col]
+            
+            # Match R's strict NA handling
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+                
             # Align xRa and xRb
-            merged = pd.concat([xRa[ra_col], xRb[rb_col]], axis=1).dropna()
+            merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
@@ -312,8 +320,16 @@ def specific_risk(
     for rb_col in rb_cols:
         col_results = []
         for ra_col in ra_cols:
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+            
+            # Match R's strict NA handling
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+
             # Align
-            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            merged = pd.concat([a, b], axis=1).dropna()
             if merged.empty:
                 col_results.append(np.nan)
                 continue
@@ -785,4 +801,125 @@ def min_track_record(
     if len(cols) == 1:
         return res.iloc[:, 0].to_dict()
     return res
+
+def systematic_risk(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
+    scale: Optional[int] = None
+) -> Union[float, pd.Series, pd.DataFrame]:
+    """
+    Calculate Systematic Risk.
+    systematic risk = beta * market risk
+    """
+    if scale is None:
+        scale = _get_scale(Ra)
+
+    from pyperfanalytics.returns import return_excess
+    
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    results = []
+    for rb_col in rb_cols:
+        col_results = []
+        for ra_col in ra_cols:
+            xRa = return_excess(ra_df[ra_col], Rf)
+            xRb = return_excess(rb_df[rb_col], Rf)
+            
+            merged = pd.concat([xRa, xRb], axis=1).dropna()
+            if merged.empty:
+                col_results.append(np.nan)
+                continue
+            
+            a = merged.iloc[:, 0]
+            b = merged.iloc[:, 1]
+            
+            bta = capm_beta(a, b)
+            # R uses population SD (ddof=0) for SystematicRisk
+            sigm = b.std(ddof=0) * np.sqrt(scale)
+            col_results.append(float(bta * sigm))
+        results.append(col_results)
+        
+    res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
+    if len(rb_cols) == 1 and len(ra_cols) == 1:
+        return float(res_df.iloc[0, 0])
+    elif len(rb_cols) == 1:
+        return res_df.iloc[0, :]
+    elif len(ra_cols) == 1:
+        return res_df.iloc[:, 0]
+    else:
+        return res_df
+
+def specific_risk(
+    Ra: Union[pd.Series, pd.DataFrame],
+    Rb: Union[pd.Series, pd.DataFrame],
+    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
+    scale: Optional[int] = None
+) -> Union[float, pd.Series, pd.DataFrame]:
+    """
+    Calculate Specific Risk.
+    Specific risk is the standard deviation of the error term in the regression.
+    """
+    if scale is None:
+        scale = _get_scale(Ra)
+
+    from pyperfanalytics.returns import capm_alpha
+    
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+        
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+        
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+    
+    results = []
+    for rb_col in rb_cols:
+        col_results = []
+        for ra_col in ra_cols:
+            a_raw = ra_df[ra_col]
+            b_raw = rb_df[rb_col]
+            
+            merged = pd.concat([a_raw, b_raw], axis=1).dropna()
+            if merged.empty:
+                col_results.append(np.nan)
+                continue
+            
+            a = merged.iloc[:, 0]
+            b = merged.iloc[:, 1]
+            
+            bta = capm_beta(a, b, Rf=Rf)
+            alpha = capm_alpha(a, b, Rf=Rf) # periodic
+            
+            epsilon = a - b * bta - alpha
+            # R uses population SD (ddof=0)
+            res_std = epsilon.std(ddof=0) * np.sqrt(scale)
+            col_results.append(float(res_std))
+        results.append(col_results)
+        
+    res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
+    if len(rb_cols) == 1 and len(ra_cols) == 1:
+        return float(res_df.iloc[0, 0])
+    elif len(rb_cols) == 1:
+        return res_df.iloc[0, :]
+    elif len(ra_cols) == 1:
+        return res_df.iloc[:, 0]
+    else:
+        return res_df
 

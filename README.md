@@ -42,35 +42,36 @@ print(risk_table)
 
 ## API Overview
 
-### Returns (`pyperfanalytics.returns`)
+### Returns & Data Adjustments (`pyperfanalytics.returns`)
 - `return_calculate`: Calculate returns from prices.
-- `return_annualized`: Calculate the annualized return.
-- `return_cumulative`: Calculate the cumulative return.
+- `return_portfolio`: Aggregate portfolio returns with periodic rebalancing and geometric/arithmetic compounding.
+- `return_clean`: Robust data cleaning using MCD (Minimum Covariance Determinant).
+- `return_geltner`: Liquidity adjustment using autocorrelation unsmoothing.
+- `return_annualized` / `return_cumulative`: Annualize or compound returns.
 - `return_excess`: Calculate excess returns over a risk-free rate.
-- `hurst_index`: Calculate the Hurst exponent for long-term memory.
-- `to_period_contributions`: Aggregate high-frequency contributions to lower frequency.
 
-### Risk (`pyperfanalytics.risk`)
+### Risk & Drawdowns (`pyperfanalytics.risk`, `pyperfanalytics.drawdowns`)
 - `var_historical` / `var_gaussian` / `var_modified`: Value at Risk.
 - `es_historical` / `es_gaussian` / `es_modified`: Expected Shortfall.
-- `tracking_error`: Calculate annualized tracking error.
-- `smoothing_index`: Normalized Getmansky Smoothing Index for liquidity risk.
-- `ulcer_index` / `pain_index`: Drawdown-based risk measures.
-- `cdar_beta` / `cdar_alpha`: Conditional Drawdown at Risk measures.
+- `tracking_error` / `specific_risk` / `systematic_risk`: Active management risk metrics.
+- `capm_beta` / `capm_alpha` / `jensen_alpha` / `fama_beta`: Asset pricing model metrics.
+- `max_drawdown` / `find_drawdowns`: Identify and measure historical drawdowns.
+- `cdar` / `cdar_beta` / `cdar_alpha`: Conditional Drawdown at Risk.
 
-### Ratios (`pyperfanalytics.returns`)
-- `sharpe_ratio`, `sortino_ratio`, `calmar_ratio`, `omega_ratio`, `burke_ratio`.
-- `kelly_ratio`, `upside_potential_ratio`, `martin_ratio`, `pain_ratio`.
-- `adjusted_sharpe_ratio`, `prob_sharpe_ratio`.
+### Performance Ratios (`pyperfanalytics.returns`)
+- **Risk-Adjusted**: `sharpe_ratio`, `sortino_ratio`, `calmar_ratio`, `omega_ratio`.
+- **Advanced**: `appraisal_ratio`, `kappa`, `prospect_ratio`, `sterling_ratio`, `m_squared`, `m2_excess`.
+- **Active / Drawdown**: `information_ratio`, `burke_ratio`, `martin_ratio`, `pain_ratio`, `net_selectivity`.
+- **Statistical**: `hurst_index`, `smoothing_index`, `mean_absolute_deviation`.
 
-### Tables (`pyperfanalytics.tables`)
+### Summary Tables (`pyperfanalytics.tables`)
 - `table_stats`: Comprehensive statistical summary.
+- `table_annualized_returns`: Core annualized performance facts.
 - `table_distributions`: Summary of moments (Skewness, Kurtosis).
-- `table_correlation`: Pearson correlations and p-values.
-- `table_downside_risk_ratio`: Downside risk and reward-to-risk ratios.
-- `table_drawdowns_ratio`: Drawdown-related ratios.
-- `table_prob_outperformance`: Probabilities of outperforming a benchmark.
-- `table_rolling_periods`: Trailing statistics over multiple sliding windows.
+- `table_correlation` / `table_autocorrelation`: Pearson correlations and lag dependencies.
+- `table_downside_risk_ratio` / `table_drawdowns_ratio`: Risk and drawdown tracking.
+- `table_capture_ratios` / `table_up_down_ratios`: Market capture evaluations.
+- `table_prob_outperformance` / `table_rolling_periods`: Outperformance probability and trailing metrics.
 
 ## Verification
 
