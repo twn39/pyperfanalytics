@@ -81,7 +81,31 @@ def table_annualized_returns(
     """
     Annualized Returns Summary: Statistics and Stylized Facts
     
-    Table of Annualized Return, Annualized Std Dev, and Annualized Sharpe
+    Creates a table of Annualized Return, Annualized Standard Deviation, 
+    and Annualized Sharpe Ratio.
+
+    Formulas:
+    - Annualized Return: $(1 + R_{cum})^{scale / n} - 1$
+    - Annualized Std Dev: $\sigma \cdot \sqrt{scale}$
+    - Annualized Sharpe: $\frac{R_{ann} - R_{f, ann}}{\sigma_{ann}}$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    scale : int, optional
+        Number of periods in a year.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    geometric : bool, optional
+        Generate geometric (True) or arithmetic (False) annualized returns. Default is True.
+    digits : int, optional
+        Number of decimal places to round to.
+
+    Returns
+    -------
+    pd.DataFrame
+        A table containing the summary statistics.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -121,7 +145,30 @@ def table_capm(
     digits: int = 4
 ) -> pd.DataFrame:
     """
-    Single Factor Asset-Pricing Model Summary: Statistics and Stylized Facts
+    Single Factor Asset-Pricing Model (CAPM) Summary Table.
+
+    Creates a summary table containing multiple CAPM and relative risk/return metrics:
+    Alpha, Beta, Beta+ (Bull Beta), Beta- (Bear Beta), R-squared, Annualized Alpha, 
+    Correlation, Correlation p-value, Tracking Error, Active Premium, Information Ratio, 
+    and Treynor Ratio.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    scale : int, optional
+        Number of periods in a year.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    digits : int, optional
+        Number of decimal places.
+
+    Returns
+    -------
+    pd.DataFrame
+        CAPM summary table comparing each asset in Ra to each benchmark in Rb.
     """
     if scale is None:
         scale = _get_scale(Ra)
@@ -208,7 +255,31 @@ def table_downside_risk(
     digits: int = 4
 ) -> pd.DataFrame:
     """
-    Downside Risk Summary: Statistics and Stylized Facts
+    Downside Risk Summary: Statistics and Stylized Facts.
+
+    Creates a table containing multiple downside-focused risk metrics:
+    Semi Deviation, Gain/Loss Deviation, Downside Deviation (with different MARs),
+    Maximum Drawdown, Historical VaR/ES, and Modified VaR/ES.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    scale : int, optional
+        Number of periods in a year.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    MAR : float, optional
+        Minimum Acceptable Return. Default is 0.1/12.0.
+    p : float, optional
+        Confidence level for VaR/ES, default is 0.95.
+    digits : int, optional
+        Number of decimal places to round to.
+
+    Returns
+    -------
+    pd.DataFrame
+        Downside risk summary table comparing all columns in R.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -274,7 +345,28 @@ def table_capture_ratios(
     digits: int = 4
 ) -> pd.DataFrame:
     """
+    Up and Down Market Capture Ratio Table.
+
     Calculate and display a table of capture ratio and related statistics.
+    Up Capture indicates how much of the benchmark's positive returns the asset captured, 
+    while Down Capture measures the same for negative returns.
+
+    Formula:
+    $$ Capture = \frac{R_{a, ann}}{R_{b, ann}} $$ subsetted by positive/negative benchmark returns.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    digits : int, optional
+        Number of decimal precision digits.
+
+    Returns
+    -------
+    pd.DataFrame
+        Table of Up and Down Capture Ratios.
     """
     # Standardize inputs
     if isinstance(Ra, pd.Series):
@@ -311,7 +403,24 @@ def table_up_down_ratios(
     digits: int = 4
 ) -> pd.DataFrame:
     """
-    Calculate and display a table of up and down market statistics.
+    Up and Down Market Ratios Table.
+
+    Calculate and display a table of up and down market statistics including 
+    capture ratios, number of up/down periods, and percent of up/down periods.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    digits : int, optional
+        Number of decimal precision digits.
+
+    Returns
+    -------
+    pd.DataFrame
+        Table of Up/Down Capture, Number, and Percent.
     """
     # Standardize inputs
     if isinstance(Ra, pd.Series):
@@ -360,7 +469,26 @@ def table_calendar_returns(
     geometric: bool = True
 ) -> pd.DataFrame:
     """
-    Monthly and Calendar year Return table.
+    Monthly and Calendar Year Return Table.
+
+    Transforms a time series of returns into a calendar-formatted table where rows 
+    are years, columns are months, and an additional column holds the YTD/annual return.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns. If a DataFrame with multiple columns is provided, only the first is used.
+    digits : int, optional
+        Number of decimal precision digits. Default is 1.
+    as_perc : bool, optional
+        If True, multiplies returns by 100 for display.
+    geometric : bool, optional
+        If True, compound returns geometrically for the annual total. Default is True.
+
+    Returns
+    -------
+    pd.DataFrame
+        Calendar returns matrix.
     """
     if isinstance(R, pd.DataFrame):
         # PerformanceAnalytics defaults to first column if many
@@ -413,7 +541,23 @@ def table_higher_moments(
 ) -> pd.DataFrame:
     """
     Higher Moments Summary: Statistics and Stylized Facts (Co-Moments).
-    Matches R's table.HigherMoments.
+
+    Creates a table of CoSkewness, CoKurtosis, Beta CoVariance, Beta CoSkewness, 
+    and Beta CoKurtosis of asset returns against benchmark returns.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        Higher moments summary table.
     """
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -463,6 +607,21 @@ def table_prob_skewness_kurtosis(
 ) -> pd.DataFrame:
     """
     Summary table for univariate skewness and kurtosis methods.
+
+    Generates a table showing different estimates of skewness and kurtosis 
+    (moment, fisher, sample, excess).
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        Skewness and kurtosis metrics table.
     """
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
@@ -510,7 +669,25 @@ def table_variability(
 ) -> pd.DataFrame:
     """
     Variability Summary: Statistics and Stylized Facts.
-    Matches R's table.Variability.
+
+    Creates a table of Mean Absolute Deviation, Period Standard Deviation, 
+    and Annualized Standard Deviation.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Geometric aggregation flag. Default is True.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        Variability metrics table.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -552,7 +729,26 @@ def table_drawdowns(
 ) -> pd.DataFrame:
     """
     Worst Drawdowns Summary: Statistics and Stylized Facts.
-    Matches R's table.Drawdowns.
+
+    Finds the largest drawdowns in the return series and formats them into a table 
+    containing their Start Date (From), Trough Date, End Date (To), Depth, Length, 
+    Time to Trough, and Recovery Time.
+
+    Parameters
+    ----------
+    R : pd.Series
+        Asset returns (only single series supported).
+    top : int, optional
+        Number of worst drawdowns to display. Default is 5.
+    digits : int, optional
+        Rounding digits for depth. Default is 4.
+    geometric : bool, optional
+        Use geometric compounding. Default is True.
+
+    Returns
+    -------
+    pd.DataFrame
+        Worst drawdowns table.
     """
     # PerformanceAnalytics' table.Drawdowns only works for single column
     if isinstance(R, pd.DataFrame):
@@ -618,8 +814,26 @@ def table_information_ratio(
     digits: int = 4
 ) -> pd.DataFrame:
     """
-    Information ratio Summary: Statistics and Stylized Facts
-    Table of Tracking error, Annualised tracking error and Information ratio.
+    Information Ratio Summary: Statistics and Stylized Facts.
+
+    Creates a table containing calculated metrics relating to the tracking error and 
+    information ratio of returns against a benchmark.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    scale : int, optional
+        Number of periods in a year.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        A table showing Periodic Tracking Error, Annualized Tracking Error, and Information Ratio.
     """
     if scale is None:
         scale = _get_utils_scale(Ra)
@@ -635,7 +849,7 @@ def table_information_ratio(
     results = []
     for col in ra_cols:
         # periodic tracking error
-        # R: TrackingError(y[,column,drop=FALSE],Rb)/sqrt(scale)
+        # R: TrackingError(y[,column,drop=FALSE])/sqrt(scale)
         te_periodic = tracking_error(ra_df[col], Rb, scale=1.0) # scale=1 for periodic
         te_annual = tracking_error(ra_df[col], Rb, scale=scale)
         ir = information_ratio(ra_df[col], Rb, scale=scale)
@@ -683,6 +897,26 @@ def table_prob_sharpe_ratio(
 ) -> pd.DataFrame:
     """
     Summary table for Probabilistic Sharpe Ratio across different thresholds.
+
+    Calculates the statistical significance of the Sharpe Ratio against a given set 
+    of reference Sharpe Ratios, yielding the Probability Sharpe Ratio (PSR), 
+    significance flag, etc.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    refSR : float, list, or np.ndarray, optional
+        Reference Sharpe Ratio(s). Default is 0.0.
+    Rf : float, optional
+        Risk-free rate. Default is 0.0.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        A table of Probabilistic Sharpe Ratio values for each threshold.
     """
     if isinstance(refSR, (float, int, np.float64, np.int64)):
         refSR = [refSR]
@@ -752,6 +986,25 @@ def table_correlation(
 ) -> pd.DataFrame:
     """
     Calculate correlations and significance of multicolumn data.
+
+    Computes the Pearson correlation coefficient between assets and benchmarks, 
+    along with the p-value and a confidence interval (default 95%) leveraging the Fisher Z-transform.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+    conf_level : float, optional
+        Confidence level for the interval (e.g., 0.95 for 95% CI).
+
+    Returns
+    -------
+    pd.DataFrame
+        A table showing Correlation, p-value, Lower CI, and Upper CI.
     """
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -864,8 +1117,29 @@ def table_downside_risk_ratio(
     digits: int = 4
 ) -> pd.DataFrame:
     """
-    Downside Summary: Statistics and ratios.
-    Table of downside risk, Annualised downside risk, Downside potential, etc.
+    Downside Risk Summary: Ratios and Metrics.
+
+    Creates a comprehensive table of downside-related metrics, contrasting 
+    variations of downside deviation against downside potential and upside potential.
+
+    Incorporates: Downside Deviation, Downside Potential, Omega Ratio, Sortino Ratio, 
+    Upside Potential, Upside Potential Ratio, and Omega-Sharpe Ratio.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    MAR : float, optional
+        Minimum Acceptable Return. Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+    digits : int, optional
+        Number of decimal precision digits. Default is 4.
+
+    Returns
+    -------
+    pd.DataFrame
+        Downside ratios and statistics matrix.
     """
     if scale is None:
         scale = _get_utils_scale(R)

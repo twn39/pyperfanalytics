@@ -7,6 +7,26 @@ from pyperfanalytics.utils import _get_scale
 def return_calculate(prices: Union[pd.Series, pd.DataFrame], method: str = "discrete") -> Union[pd.Series, pd.DataFrame]:
     """
     Calculate returns from a price stream.
+
+    Determines the period-over-period returns based on a pricing series, supporting 
+    both discrete (simple) and continuous (log) methods.
+
+    Formula:
+    - discrete: $R_t = \frac{P_t}{P_{t-1}} - 1$
+    - continuous: $r_t = \ln(P_t) - \ln(P_{t-1})$
+    - difference: $D_t = P_t - P_{t-1}$
+
+    Parameters
+    ----------
+    prices : pd.Series or pd.DataFrame
+        Price levels of assets.
+    method : str, optional
+        Type of return calculation: "discrete" (default), "log", or "diff".
+
+    Returns
+    -------
+    pd.Series or pd.DataFrame
+        Returns series.
     """
     if method in ["discrete", "simple", "arithmetic"]:
         return prices.pct_change()
@@ -46,6 +66,26 @@ def return_excess(R: Union[pd.Series, pd.DataFrame], Rf: Union[float, pd.Series,
 def return_annualized(R: Union[pd.Series, pd.DataFrame], scale: Optional[int] = None, geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate annualized return.
+
+    Aggregates period returns into an annualized equivalent, assuming continuous 
+    compounding (geometric) or simple arithmetic averaging.
+
+    Formula (Geometric):
+    $$ R_{ann} = \left[ \prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1 $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Whether to compound returns. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Annualized return.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -88,6 +128,28 @@ def downside_deviation(
 ) -> Union[float, pd.Series]:
     """
     Calculate downside deviation or potential.
+
+    Downside deviation measures the volatility of returns below a minimum acceptable 
+    return (MAR). Different from standard deviation, it only penalizes losses.
+
+    Formula:
+    $$ \delta_{MAR} = \sqrt{\frac{1}{n} \sum_{t=1}^n \min(R_t - MAR, 0)^2} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    MAR : float, optional
+        Minimum acceptable return. Default is 0.0.
+    method : str, optional
+        "full" (divide by total $n$) or "subset" (divide by number of downside periods).
+    potential : bool, optional
+        If True, calculates Downside Potential (first lower partial moment).
+
+    Returns
+    -------
+    float or pd.Series
+        Downside deviation.
     """
     def _calc(s: pd.Series, mar: float, meth: str, pot: bool) -> float:
         s = s.dropna()
@@ -123,7 +185,20 @@ def downside_potential(R: Union[pd.Series, pd.DataFrame], MAR: float = 0.0) -> U
 
 def semi_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
-    Calculate semi-deviation (MAR = mean, method = full).
+    Calculate semi-deviation.
+
+    Semi-deviation is the downside deviation where MAR is the mean return.
+    Formula corresponds to the square root of the second lower partial moment.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+
+    Returns
+    -------
+    float or pd.Series
+        Semi-deviation.
     """
     if isinstance(R, pd.DataFrame):
         return R.apply(lambda x: downside_deviation(x, MAR=x.mean(), method="full"))
@@ -154,9 +229,6 @@ def gain_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]
         return _calc(R)
 
 def loss_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
-    """
-    Standard deviation of the negative returns.
-    """
     def _calc(s: pd.Series) -> float:
         subset = s[s < 0]
         if len(subset) < 2: return np.nan
@@ -189,6 +261,32 @@ def sharpe_ratio(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate the Sharpe Ratio.
+
+    Measures excess return per unit of risk. The risk metric can be defined as 
+    Standard Deviation, Value at Risk (VaR), Expected Shortfall (ES), or SemiSD.
+
+    Formula:
+    $$ SR = \frac{\overline{R_a - R_f}}{Risk} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    p : float, optional
+        Confidence level for VaR/ES. Default is 0.95.
+    FUN : str, optional
+        Risk measure to use: "StdDev", "VaR", "ES", "SemiSD".
+    annualize : bool, optional
+        If True, annualizes the return and risk inputs. Default is False.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float or pd.Series
+        The Sharpe Ratio.
     """
     from pyperfanalytics.risk import var_historical, var_gaussian, var_modified, es_historical, es_gaussian, es_modified
     
@@ -295,7 +393,27 @@ def information_ratio(
     """
     Calculate the Information Ratio.
     
-    InformationRatio = ActivePremium / TrackingError
+    The Information Ratio measures the active return of an investment divided 
+    by its tracking error (active risk).
+
+    Formula:
+    $$ IR = \frac{ActivePremium}{TrackingError} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Use geometric compounding for active premium. Default is True.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Information Ratio.
     """
     from pyperfanalytics.risk import tracking_error
     
@@ -315,6 +433,26 @@ def capm_alpha(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate CAPM alpha of returns against a benchmark.
+
+    Alpha represents the excess return of an investment relative to the return of 
+    a benchmark index, adjusted for the systemic risk (beta) of the investment.
+
+    Formula:
+    $$ \alpha = \overline{R_a - R_f} - \beta \cdot \overline{R_b - R_f} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        CAPM Alpha value(s).
     """
     from pyperfanalytics.risk import capm_beta
     
@@ -383,7 +521,27 @@ def treynor_ratio(
     """
     Calculate Treynor Ratio.
     
-    Treynor Ratio = Annualized Excess Return / CAPM Beta
+    The Treynor ratio measures returns earned in excess of that which could have 
+    been earned on a riskless investment per each unit of market risk (beta).
+
+    Formula:
+    $$ TR = \frac{R_{a, ann} - R_{f, ann}}{\beta} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Treynor Ratio.
     """
     from pyperfanalytics.risk import capm_beta
     
@@ -405,7 +563,26 @@ def calmar_ratio(
     """
     Calculate Calmar Ratio.
     
-    Calmar Ratio = Annualized Return / Absolute Maximum Drawdown
+    Calculate the ratio of annualized return over the absolute value of the 
+    maximum drawdown. It is a risk-adjusted measure that balances performance 
+    with tail risk.
+
+    Formula:
+    $$ Calmar = \frac{R_{ann}}{\max(|D_t|)} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Use geometric compounding. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Calmar Ratio.
     """
     from pyperfanalytics.drawdowns import max_drawdown
     
@@ -523,7 +700,24 @@ def kelly_ratio(
     """
     Calculate Kelly criterion ratio (leverage or bet size) for a strategy.
     
-    Kelly Ratio = mean(excess return) / variance(excess return)
+    The Kelly criterion is a formula used to determine the optimal size of a series of bets.
+    
+    Formula:
+    $$ KellyRatio = \frac{\overline{R - R_f}}{\sigma^2_R} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+    method : str, optional
+        "half" to return half-Kelly, "full" for full Kelly. Default is "half".
+
+    Returns
+    -------
+    float or pd.Series
+        Kelly Ratio.
     """
     xR = return_excess(R, Rf)
     
@@ -556,7 +750,25 @@ def upside_potential_ratio(
     """
     Calculate Upside Potential Ratio of upside performance over downside risk.
     
-    UPR = sum(R - MAR) / DownsideDeviation(R, MAR) where R > MAR.
+    A performance measure dividing upside potential by downside deviation, similar 
+    to the Sortino ratio.
+
+    Formula:
+    $$ UPR = \frac{\frac{1}{n} \sum_{R>MAR} (R - MAR)}{DownsideDeviation(MAR)} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    MAR : float, optional
+        Minimum Acceptable Return. Default is 0.
+    method : str, optional
+        "subset" or "full". Default is "subset".
+
+    Returns
+    -------
+    float or pd.Series
+        Upside Potential Ratio.
     """
     def _calc(s: pd.Series, mar: float, meth: str) -> float:
         s = s.dropna()
@@ -591,8 +803,32 @@ def martin_ratio(
     """
     Calculate Martin ratio of the return distribution.
     
-    Martin ratio = (Annualized Return - Rf) / Ulcer Index
-    NOTE: Matches PerformanceAnalytics R bug where Rf is NOT annualized.
+    The Martin ratio is the annualized return minus the risk-free rate, divided 
+    by the Ulcer Index. It evaluates performance similar to the Sharpe ratio but 
+    penalizing drawdowns.
+
+    Formula:
+    $$ MartinRatio = \frac{R_{ann} - R_{f}}{UlcerIndex} $$
+
+    Notes
+    -----
+    Matches PerformanceAnalytics R bug where Rf is NOT annualized before subtraction.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate (periodic). Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Geometric compounding flag. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Martin ratio.
     """
     from pyperfanalytics.risk import ulcer_index
     
@@ -620,8 +856,31 @@ def pain_ratio(
     """
     Calculate Pain ratio of the return distribution.
     
-    Pain ratio = (Annualized Return - Rf) / Pain Index
-    NOTE: Matches PerformanceAnalytics R bug where Rf is NOT annualized.
+    The Pain ratio is the annualized return minus the risk-free rate, divided 
+    by the Pain Index.
+
+    Formula:
+    $$ PainRatio = \frac{R_{ann} - R_{f}}{PainIndex} $$
+
+    Notes
+    -----
+    Matches PerformanceAnalytics R bug where Rf is NOT annualized before subtraction.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate (periodic). Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+    geometric : bool, optional
+        Geometric compounding flag. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Pain ratio.
     """
     from pyperfanalytics.risk import pain_index
     
@@ -647,6 +906,28 @@ def upside_risk(
 ) -> Union[float, pd.Series]:
     """
     Calculate upside risk, variance, or potential.
+
+    Depending on the selected stat, measures the variability or sum of returns 
+    above a specified Minimum Acceptable Return (MAR).
+
+    Formula (Variance):
+    $$ UV = \frac{1}{n} \sum_{R>MAR} (R - MAR)^2 $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    MAR : float, optional
+        Minimum Acceptable Return. Default is 0.0.
+    method : str, optional
+        "full" or "subset". Default is "full".
+    stat : str, optional
+        Type of return metric: "risk", "variance", or "potential". Default is "risk".
+
+    Returns
+    -------
+    float or pd.Series
+        Upside risk, variance, or potential.
     """
     def _calc(s: pd.Series, mar: float, meth: str, st: str) -> float:
         s = s.dropna()
@@ -689,8 +970,25 @@ def volatility_skewness(
 ) -> Union[float, pd.Series]:
     """
     Calculate Volatility or Variability Skewness.
-    Volatility Skewness = UpsideVariance / DownsideVariance
-    Variability Skewness = UpsideRisk / DownsideRisk
+    
+    A ratio comparing upside variability to downside variability.
+
+    Formula (Volatility Skewness):
+    $$ VS = \frac{UpsideVariance}{DownsideVariance} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    MAR : float, optional
+        Minimum Acceptable Return. Default is 0.0.
+    stat : str, optional
+        "volatility" (variance based) or "variability" (risk based). Default is "volatility".
+
+    Returns
+    -------
+    float or pd.Series
+        Skewness metric.
     """
     if stat == "volatility":
         uv = upside_risk(R, MAR=MAR, method="full", stat="variance")
@@ -711,7 +1009,28 @@ def omega_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Omega Ratio.
-    Matches R's Omega (method='simple').
+    
+    The Omega Ratio divides the average return above a threshold by the average 
+    return below that threshold. Values above 1 signify desirable upside relative to downside risk.
+
+    Formula:
+    $$ \Omega = \frac{\int_L^\infty (1 - F(r)) dr}{\int_{-\infty}^L F(r) dr} = \frac{\frac{1}{n} \sum \max(R-L, 0)}{\frac{1}{n} \sum \max(L-R, 0)} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    L : float, optional
+        Return threshold (L). Default is 0.0.
+    Rf : float, optional
+        Risk-free rate. Default is 0.0.
+    method : str, optional
+        Calculation method. Only "simple" is supported currently.
+
+    Returns
+    -------
+    float or pd.Series
+        Omega Ratio.
     """
     if method != "simple":
         raise NotImplementedError("Only 'simple' method is implemented.")
@@ -740,9 +1059,28 @@ def burke_ratio(
 ) -> Union[float, pd.Series]:
     """
     Calculate Burke Ratio or Modified Burke Ratio.
-    Burke Ratio = (Rp - Rf) / sqrt(sum(D_t^2))
-    Note: PerformanceAnalytics uses a specific logic for drawdowns in BurkeRatio:
-    it only considers consecutive negative returns as a drawdown.
+    
+    The Burke Ratio evaluates a portfolio's return against its drawdown risk, 
+    squaring drawdowns to penalize larger single losses over multiple smaller ones.
+
+    Formula:
+    $$ BurkeRatio = \frac{R_{ann} - R_f}{\sqrt{\sum_{t=1}^d D_t^2}} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    modified : bool, optional
+        If True, multiplies the ratio by $\sqrt{n}$ where $n$ is the number of periods.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float or pd.Series
+        Burke Ratio.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -819,7 +1157,26 @@ def modigliani(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Modigliani-Modigliani (M-squared) measure.
-    M2 = SharpeRatio(Ra, Rf) * StdDev(Rb) + mean(Rf)
+    
+    M-Squared (M2) adjusts the portfolio's return to match the benchmark's risk 
+    level, expressing the Sharpe ratio in percentage terms.
+
+    Formula:
+    $$ M^2 = SR_a \cdot \sigma_b + \overline{R_f} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        M-Squared measure.
     """
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -871,8 +1228,23 @@ def modigliani(
 
 def mean_absolute_deviation(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
-    Calculate Mean absolute deviation.
-    Sum of absolute differences between returns and mean, divided by length.
+    Calculate Mean Absolute Deviation (MAD).
+    
+    An alternative measure of dispersion around the mean, often more robust to 
+    outliers than standard deviation.
+
+    Formula:
+    $$ MAD = \frac{1}{n} \sum_{i=1}^n |R_i - \bar{R}| $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+
+    Returns
+    -------
+    float or pd.Series
+        Mean absolute deviation.
     """
     def _calc(s: pd.Series) -> float:
         s = s.dropna()

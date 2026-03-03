@@ -5,6 +5,27 @@ from typing import Union, List, Dict, Any, Optional
 def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[pd.Series, pd.DataFrame]:
     """
     Calculate the drawdown levels in a timeseries.
+
+    Drawdown at time $t$ is calculated as the percentage drop from the highest cumulative return peak 
+    observed up to time $t$. Any time the cumulative return drops below the maximum cumulative return, 
+    it's a drawdown. Drawdowns are measured as a percentage of that maximum cumulative return.
+
+    Formula:
+    $$ D_t = \frac{C_t}{\max_{j=1}^t (C_j)} - 1 $$
+    where $C_t$ is the cumulative return at time $t$.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculates geometric cumulative returns (compound). 
+        If False, calculates arithmetic cumulative returns (simple sum). Default is True.
+
+    Returns
+    -------
+    pd.Series or pd.DataFrame
+        A timeseries of drawdown percentages (<= 0), with the same shape as `R`.
     """
     def _calc(s: pd.Series, geom: bool) -> pd.Series:
         s = s.dropna()
@@ -29,7 +50,25 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
 def max_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate the maximum drawdown of a return series.
-    Returns the absolute value of the worst-case loss.
+
+    Maximum drawdown is the absolute value of the worst-case continuous loss 
+    from a peak to a trough. It is the largest drop in a portfolio's equity curve.
+
+    Formula:
+    $$ MaxDD = \max(|D_t|) $$
+    where $D_t$ is the drawdown at time $t$.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculates geometric drawdowns. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        The absolute value of the maximum drawdown (positive number).
     """
     dd = drawdowns(R, geometric=geometric)
     return np.abs(dd.min())
@@ -37,8 +76,33 @@ def max_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> U
 def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Dict[str, np.ndarray]:
     """
     Find drawdowns in a return series.
-    Returns a dictionary with return, from, trough, to, length, peaktotrough, recovery.
-    Indices are 1-indexed to match R.
+
+    Finds all the drawdowns in a timeseries and gives a structured output of 
+    their characteristics: the depth, the start period, the trough period, 
+    the end period, the length (in periods), the peak-to-trough length, and the recovery length.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns. Only the first column is processed if a DataFrame is provided.
+    geometric : bool, optional
+        If True, calculates compound drawdowns. Default is True.
+
+    Returns
+    -------
+    Dict[str, np.ndarray]
+        A dictionary containing numpy arrays for:
+        - 'return': depth of the drawdown
+        - 'from': start index (1-indexed)
+        - 'trough': trough index (1-indexed)
+        - 'to': end/recovery index (1-indexed)
+        - 'length': total length from peak to full recovery
+        - 'peaktotrough': length from peak to trough
+        - 'recovery': length from trough to full recovery
+
+    Notes
+    -----
+    - Output indices are 1-indexed to strictly match the behavior of R's PerformanceAnalytics.
     """
     if isinstance(R, pd.DataFrame):
         # Implementation for multiple columns should probably return a list of dicts or handle it differently
@@ -131,6 +195,22 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
 def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate the average depth of the observed drawdowns.
+
+    Formula:
+    $$ AvgDrawdown = \frac{1}{d} \sum_{j=1}^d |D_j| $$
+    where $D_j$ represents the depth of the $j$-th drawdown and $d$ is the number of drawdowns.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculates geometric drawdowns. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        The average drawdown depth as a positive float.
     """
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
@@ -148,6 +228,23 @@ def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
 def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate the average length (in periods) of the observed drawdowns.
+
+    Formula:
+    $$ AvgLength = \frac{1}{d} \sum_{j=1}^d L_j $$
+    where $L_j$ is the total length of the $j$-th drawdown (from peak to recovery), 
+    and $d$ is the number of drawdowns.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculate drawdowns geometrically. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Average length of the drawdowns.
     """
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
@@ -165,6 +262,22 @@ def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
 def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate the average length (in periods) of the observed recovery period.
+
+    Formula:
+    $$ AvgRecovery = \frac{1}{d} \sum_{j=1}^d R_j $$
+    where $R_j$ is the recovery length of the $j$-th drawdown (from trough to recovery).
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculate drawdowns geometrically. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        Average recovery length.
     """
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
@@ -182,7 +295,25 @@ def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
 def drawdown_deviation(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
     """
     Calculate a standard deviation-type statistic using individual drawdowns.
-    DD = sqrt(sum[j=1,2,...,d](D_j^2/n))
+
+    Drawdown deviation models the dispersion of drawdown depths.
+
+    Formula:
+    $$ DD = \sqrt{\frac{1}{n} \sum_{j=1}^d D_j^2} $$
+    where $D_j$ is the depth of the $j$-th drawdown, $d$ is the number of drawdowns, 
+    and $n$ is the total number of periods in the series.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    geometric : bool, optional
+        If True, calculates geometric drawdowns. Default is True.
+
+    Returns
+    -------
+    float or pd.Series
+        The drawdown deviation.
     """
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
@@ -240,11 +371,28 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
 def cdd(R: Union[pd.Series, pd.DataFrame], p: float = 0.95, geometric: bool = True, invert: bool = True) -> Union[float, pd.Series]:
     """
     Calculate Uryasev's proposed Conditional Drawdown at Risk (CDD or CDaR) measure.
-    For some confidence level p, the conditional drawdown is the mean of the worst p% drawdowns.
-    Wait, R's implementation uses quantile: result = quantile(drawdowns$return, p).
-    Actually, R's CDD uses quantile(drawdowns$return, p) but p is usually 0.95.
-    Wait! R's implementation says `p=.setalphaprob(p)`. If p=0.95, .setalphaprob gives 0.05.
-    Then `quantile(drawdowns$return, 0.05)` is the 5% quantile (which is deep negative).
+
+    For some confidence level $p$, the conditional drawdown is the mean of the worst $p\%$ drawdowns.
+    It is a modification of the Expected Shortfall (ES) applied to drawdowns instead of returns.
+
+    Formula:
+    $$ CDD = \text{Quantile}(D, 1-p) $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level for calculation, default is 0.95.
+    geometric : bool, optional
+        Use geometric compounding. Default is True.
+    invert : bool, optional
+        If True, inverts the sign to present risk as a positive number (like R).
+
+    Returns
+    -------
+    float or pd.Series
+        The CDD risk value.
     """
     def _calc(s: pd.Series, prob: float) -> float:
         s = s.dropna()

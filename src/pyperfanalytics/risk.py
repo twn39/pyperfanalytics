@@ -6,7 +6,25 @@ from pyperfanalytics.utils import centered_moment, skewness, kurtosis, _get_scal
 
 def var_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
-    Calculate Historical VaR (negative of the alpha-quantile).
+    Calculate Historical Value at Risk (VaR).
+
+    Computes the historical VaR (negative of the alpha-quantile) of the returns distribution.
+    VaR is a measure of the risk of loss for investments.
+
+    Formula:
+    $$ VaR_{hist} = -Q(R, 1-p) $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level for calculation, default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Historical VaR value(s) (returned as positive values representing losses).
     """
     alpha = 1 - p if p >= 0.5 else p
     def _calc(s: pd.Series, a: float) -> float:
@@ -21,7 +39,25 @@ def var_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[
 
 def var_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
-    Calculate Gaussian VaR.
+    Calculate Gaussian (Parametric) Value at Risk (VaR).
+
+    Estimates VaR assuming a normal distribution of returns.
+
+    Formula:
+    $$ VaR_{gaus} = -(\mu + z_\alpha \cdot \sigma) $$
+    where $z_\alpha$ is the $\alpha$-quantile of the standard normal distribution.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level for calculation (e.g., 0.95 for 95% confidence). Default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Gaussian VaR value(s).
     """
     alpha = 1 - p if p >= 0.5 else p
     mu = R.mean()
@@ -31,7 +67,26 @@ def var_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[fl
 
 def var_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
-    Calculate Modified (Cornish-Fisher) VaR.
+    Calculate Modified (Cornish-Fisher) Value at Risk (VaR).
+
+    Adjusts Gaussian VaR to account for skewness and kurtosis in the return 
+    distribution using the Cornish-Fisher expansion.
+
+    Formula:
+    $$ VaR_{mod} = -(\mu + \tilde{z}_\alpha \cdot \sigma) $$
+    where $\tilde{z}_\alpha$ is the Cornish-Fisher expansion of the quantile.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level for calculation. Default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Modified VaR value(s).
     """
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
@@ -51,7 +106,24 @@ def var_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[fl
 
 def es_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
-    Calculate Historical Expected Shortfall.
+    Calculate Historical Expected Shortfall (Conditional VaR).
+
+    Calculates the average of the worst $(1-p)$% of returns.
+
+    Formula:
+    $$ ES_{hist} = -E[R | R < -VaR_{hist}] $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level. Default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Historical Expected Shortfall.
     """
     alpha = 1 - p if p >= 0.5 else p
     def _calc(s: pd.Series, a: float) -> float:
@@ -70,7 +142,25 @@ def es_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[f
 
 def es_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
-    Calculate Gaussian Expected Shortfall.
+    Calculate Gaussian Expected Shortfall (Conditional VaR).
+
+    Estimates Expected Shortfall assuming a normal distribution.
+
+    Formula:
+    $$ ES_{gaus} = -\mu + \sigma \frac{\phi(z_\alpha)}{1-p} $$
+    where $\phi$ is the standard normal PDF.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level. Default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Gaussian Expected Shortfall.
     """
     alpha = 1 - p if p >= 0.5 else p
     mu = R.mean()
@@ -81,6 +171,23 @@ def es_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[flo
 def es_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
     """
     Calculate Modified (Cornish-Fisher) Expected Shortfall.
+
+    Adjusts Expected Shortfall for skewness and kurtosis.
+
+    Formula:
+    Calculated via the Cornish-Fisher expansion applied to the expected shortfall integral.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    p : float, optional
+        Confidence level. Default is 0.95.
+
+    Returns
+    -------
+    float or pd.Series
+        Modified Expected Shortfall.
     """
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
@@ -112,10 +219,28 @@ def tracking_error(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Tracking Error of returns against a benchmark.
-    
-    Tracking error is calculated by taking the standard deviation of the 
-    difference between the investment's returns and the benchmark's returns, 
-    then multiplying the result by the square root of the scale of the returns.
+
+    Tracking error is a measure of how closely a portfolio follows an index.
+    It is calculated as the annualized standard deviation of the difference 
+    between the portfolio's and benchmark's returns.
+
+    Formula:
+    $$ TE = \sigma(R_a - R_b) \cdot \sqrt{scale} $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    scale : int, optional
+        Number of periods in a year (e.g., 252 for daily, 12 for monthly).
+        If None, it is inferred from the index.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Annualized Tracking Error.
     """
     if scale is None:
         scale = _get_scale(R)
@@ -168,11 +293,28 @@ def capm_beta(
     Rf: Union[float, pd.Series, pd.DataFrame] = 0
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
-    Calculate CAPM beta of returns against a benchmark.
-    
+    Calculate CAPM Beta of returns against a benchmark.
+
     Beta is the ratio of the covariance of the asset's excess returns 
     with the benchmark's excess returns to the variance of the 
-    benchmark's excess returns.
+    benchmark's excess returns. It measures the systematic risk of the portfolio.
+
+    Formula:
+    $$ \beta = \frac{Cov(R_a - R_f, R_b - R_f)}{Var(R_b - R_f)} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        CAPM Beta value(s).
     """
     from pyperfanalytics.returns import return_excess
     
@@ -229,7 +371,23 @@ def capm_beta(
 def ulcer_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
     Calculate the Ulcer Index.
-    Matches R's PerformanceAnalytics implementation (using DrawdownPeak).
+
+    The Ulcer Index is a measure of downside risk, calculating the quadratic 
+    mean of the drawdown magnitudes over a period.
+
+    Formula:
+    $$ UI = \sqrt{\frac{1}{n} \sum_{i=1}^n D_i^2} $$
+    where $D_i$ is the drawdown percentage at time $i$.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+
+    Returns
+    -------
+    float or pd.Series
+        The Ulcer Index.
     """
     from pyperfanalytics.drawdowns import drawdown_peak
     dp = drawdown_peak(R)
@@ -247,7 +405,22 @@ def ulcer_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
 def pain_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
     Calculate the Pain Index.
-    Matches R's PerformanceAnalytics implementation (using DrawdownPeak).
+
+    The Pain Index is the mean value of the drawdowns over the entire analysis period.
+    It measures both the depth and duration of losses.
+
+    Formula:
+    $$ PI = \frac{1}{n} \sum_{i=1}^n |D_i| $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+
+    Returns
+    -------
+    float or pd.Series
+        The Pain Index.
     """
     from pyperfanalytics.drawdowns import drawdown_peak
     dp = drawdown_peak(R)
@@ -273,8 +446,29 @@ def specific_risk(
     """
     Calculate Specific Risk.
     
-    Specific risk is the annualized standard deviation of the error term 
-    in the CAPM regression.
+    Specific risk (or idiosyncratic risk) is the annualized standard deviation 
+    of the error term (alpha) in the CAPM regression. It represents the portion 
+    of risk that is not explained by the benchmark.
+
+    Formula:
+    $$ SpecificRisk = \sigma(\epsilon) \cdot \sqrt{scale} $$
+    where $\epsilon_t = R_{a,t} - R_{f,t} - \beta(R_{b,t} - R_{f,t}) - \alpha$.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Annualized Specific Risk.
     """
     if scale is None:
         scale = _get_scale(Ra)
@@ -348,8 +542,28 @@ def total_risk(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Total Risk (Systematic + Specific).
-    Note: R's TotalRisk uses sample variance for both Systematic and Specific 
-    components, whereas SpecificRisk uses population variance. We match R here.
+
+    The total risk of an asset can be decomposed into systematic risk (market-related) 
+    and specific risk (idiosyncratic).
+
+    Formula:
+    $$ TotalRisk = \sqrt{SystematicRisk^2 + SpecificRisk^2} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Total Risk.
     """
     if scale is None:
         scale = _get_scale(Ra)
@@ -405,8 +619,23 @@ def total_risk(
 def herfindahl_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     """
     Calculate Herfindahl Index based on autocorrelation.
-    Note: This follows R's PerformanceAnalytics implementation which uses squared 
-    scaled positive autocorrelation coefficients.
+
+    The Herfindahl Index (or Herfindahl-Hirschman Index) is used here to measure 
+    the concentration of autocorrelation across different lags.
+
+    Formula:
+    $$ HI = \sum_{i=1}^k \left( \frac{\max(0, \rho_i)}{\sum_{j=1}^k \max(0, \rho_j)} \right)^2 $$
+    where $\rho_i$ is the autocorrelation at lag $i$.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+
+    Returns
+    -------
+    float or pd.Series
+        The Herfindahl Index.
     """
     from statsmodels.tsa.stattools import acf
     
@@ -443,10 +672,29 @@ def smoothing_index(
     neg_thetas: bool = False,
     MAorder: int = 2
 ) -> Union[float, pd.Series]:
-    """
+    r"""
     Calculate Normalized Getmansky Smoothing Index.
-    A lower value implies more smoothing (less liquid).
-    A value of 1 implies no smoothing (more liquid).
+
+    A lower value implies more smoothing (less liquid returns).
+    A value of 1 implies no smoothing (highly liquid).
+
+    Formula:
+    $$ \xi = \sum_{j=0}^{k} \theta_j^2 $$
+    where $\theta_j$ are the normalized coefficients of an MA(k) process fitted to the returns.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    neg_thetas : bool, optional
+        If False, constraints the MA coefficients to be non-negative.
+    MAorder : int, optional
+        The degree of the moving average model. Default is 2.
+
+    Returns
+    -------
+    float or pd.Series
+        Smoothing index value.
     """
     from statsmodels.tsa.arima.model import ARIMA
     
@@ -496,8 +744,26 @@ def fama_beta(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Fama Beta.
-    Fama beta = portfolio standard deviation / benchmark standard deviation.
-    Annualized and using population standard deviation.
+
+    Fama beta is a measure of systemic risk based on the total risk of the 
+    portfolio divided by the total risk of the benchmark.
+
+    Formula:
+    $$ \beta_F = \frac{\sigma_a}{\sigma_b} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        The Fama Beta.
     """
     if scale is None:
         scale = _get_scale(Ra)
@@ -556,7 +822,31 @@ def cdar_beta(
     type: Optional[str] = None
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
-    Conditional Drawdown Beta.
+    Calculate Conditional Drawdown Beta (CDaR Beta).
+
+    Sensitivity of the portfolio to extreme drawdowns in the benchmark.
+
+    Formula:
+    $$ CDaR \beta = \frac{\sum_{i=1}^k D_{a,i}}{k \cdot CDaR_b} $$
+    where $D_{a,i}$ is the portfolio cumulative return over the benchmark's $k$ worst drawdown periods.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    p : float, optional
+        Confidence level for calculation, default is 0.95.
+    geometric : bool, optional
+        Use geometric compounding. Default is True.
+    type : str, optional
+        Either "average", "max", or None (for standard CDaR).
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        CDaR Beta.
     """
     from pyperfanalytics.drawdowns import find_drawdowns, cdd
     
@@ -671,7 +961,32 @@ def cdar_alpha(
     scale: Optional[int] = None
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
-    Conditional Drawdown Alpha.
+    Calculate Conditional Drawdown Alpha (CDaR Alpha).
+
+    Excess return over the CDaR Beta-adjusted benchmark return.
+
+    Formula:
+    $$ CDaR \alpha = R_{a, annualized} - \beta_{CDaR} \cdot R_{b, annualized} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    p : float, optional
+        Confidence level. Default is 0.95.
+    geometric : bool, optional
+        Use geometric compounding. Default is True.
+    type : str, optional
+        Either "average", "max", or None.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        CDaR Alpha.
     """
     if scale is None:
         scale = _get_scale(Ra)
@@ -731,7 +1046,33 @@ def min_track_record(
     ignore_kurtosis: bool = True
 ) -> Union[dict, pd.DataFrame]:
     """
-    Minimum Track Record Length.
+    Calculate the Minimum Track Record Length.
+
+    Computes the minimum number of observations required to establish that 
+    the estimated Sharpe Ratio is statistically significantly greater than a reference level.
+
+    Formula:
+    $$ T_{min} = 1 + \left[1 - \gamma_3 \widehat{SR} + \frac{\gamma_4 - 1}{4} \widehat{SR}^2 \right] \left(\frac{Z_{\alpha}}{\widehat{SR} - SR^*}\right)^2 $$
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    refSR : float
+        The reference Sharpe Ratio to test against.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    p : float, optional
+        Confidence level. Default is 0.95.
+    ignore_skewness : bool, optional
+        If True, assumes zero skewness.
+    ignore_kurtosis : bool, optional
+        If True, assumes normal kurtosis (3).
+
+    Returns
+    -------
+    dict or pd.DataFrame
+        Minimum track record length, significance boolean, and extra observations needed.
     """
     from pyperfanalytics.returns import sharpe_ratio
     from pyperfanalytics.utils import skewness, kurtosis
@@ -789,7 +1130,27 @@ def systematic_risk(
 ) -> Union[float, pd.Series, pd.DataFrame]:
     """
     Calculate Systematic Risk.
-    systematic risk = beta * market risk
+
+    The portion of total risk (standard deviation) explained by the benchmark.
+
+    Formula:
+    $$ SystematicRisk = \beta \cdot \sigma_{b} $$
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series, or pd.DataFrame, optional
+        Risk-free rate. Default is 0.
+    scale : int, optional
+        Number of periods in a year.
+
+    Returns
+    -------
+    float, pd.Series, or pd.DataFrame
+        Annualized Systematic Risk.
     """
     if scale is None:
         scale = _get_scale(Ra)
