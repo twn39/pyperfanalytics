@@ -171,6 +171,8 @@ Every function is verified against the R `PerformanceAnalytics` implementation u
 
 *Note on Accuracy:* Where R's `PerformanceAnalytics` implementation contains known mathematical bugs (such as the `BurkeRatio` inadvertently scaling decimal inputs by `0.01` during drawdown calculations), `pyperfanalytics` corrects these bugs to produce accurate results for standard percentage-based analytics. In such explicitly documented cases, the library's output will intentionally deviate from the buggy R output to prioritize mathematical correctness.
 
+*Note on Robust Estimation Tolerance:* The `return_clean(method="boudt")` function utilizes the Minimum Covariance Determinant (MCD) estimator. R's `PerformanceAnalytics` uses the `robustbase:covMcd` implementation (which includes specific finite sample corrections), while `pyperfanalytics` relies on `scikit-learn`'s `MinCovDet`. Due to inherent algorithmic differences in these foundational robust statistics libraries, the scale thresholds and identified outliers can slightly differ. Mathematical correctness is maintained, but outputs will exhibit minor variance from R.
+
 ```bash
 uv run pytest
 ```
