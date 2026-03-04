@@ -348,21 +348,29 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
     Replicate R's DrawdownPeak logic.
     This function assumes returns are in percent (multiplies/divides by 100).
     It is used by UlcerIndex and PainIndex in PerformanceAnalytics.
+
+    Implementation is O(n) using a single forward pass to maintain the
+    cumulative wealth index relative to the last new peak.
     """
     def _calc(s: pd.Series) -> pd.Series:
         s = s.dropna()
         n = len(s)
+        if n == 0:
+            return pd.Series([], dtype=float)
+
         res = np.zeros(n)
-        peak_idx = 0
+        # Track cumulative wealth relative to the current peak start
+        cum_wealth = 1.0  # wealth index since last peak reset
+
         for i in range(n):
-            val = 1.0
-            for j in range(peak_idx, i + 1):
-                val *= (1.0 + s.iloc[j] / 100.0)
-            if val > 1.0:
-                peak_idx = i + 1
+            cum_wealth *= (1.0 + s.iloc[i] / 100.0)
+            if cum_wealth > 1.0:
+                # New high: reset and record 0 drawdown
+                cum_wealth = 1.0
                 res[i] = 0.0
             else:
-                res[i] = (val - 1.0) * 100.0
+                res[i] = (cum_wealth - 1.0) * 100.0
+
         return pd.Series(res, index=s.index)
 
     if isinstance(R, pd.DataFrame):

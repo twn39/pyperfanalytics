@@ -58,8 +58,6 @@ def return_excess(
         # Forward fill Rf
         combined[rf_cols] = combined[rf_cols].ffill()
         # Subtract Rf from R columns
-        R.columns if isinstance(R, pd.DataFrame) else [R.name]
-
         # If Rf is a single series, subtract it from all R columns
         if len(rf_cols) == 1:
             res = R.sub(combined[rf_cols[0]], axis=0)
@@ -1081,6 +1079,12 @@ def burke_ratio(
     Formula:
     $$ BurkeRatio = \frac{R_{ann} - R_f}{\\sqrt{\\sum_{t=1}^d D_t^2}} $$
 
+    **Note on Compatibility:**
+    R's `PerformanceAnalytics::BurkeRatio` contains a known mathematical bug where it scales 
+    decimal inputs by `0.01` when computing drawdown segments, expecting percentage inputs instead. 
+    `pyperfanalytics` fixes this bug to produce the mathematically correct ratio for standard 
+    decimal returns. Therefore, output will differ significantly from R for the same decimal inputs.
+
     Parameters
     ----------
     R : pd.Series or pd.DataFrame
@@ -1114,15 +1118,15 @@ def burke_ratio(
                     in_drawdown = True
             else:
                 if in_drawdown:
-                    # R code: temp = temp*(1+R[j]*0.01); drawdown = (temp - 1) * 100
+                    # Corrected: no *0.01 bug for decimal returns
                     segment = s_vals[start_idx:i]
-                    dd = (np.prod(1 + segment * 0.01) - 1) * 100
+                    dd = np.prod(1 + segment) - 1
                     drawdowns.append(dd)
                     in_drawdown = False
 
         if in_drawdown:
             segment = s_vals[start_idx:]
-            dd = (np.prod(1 + segment * 0.01) - 1) * 100
+            dd = np.prod(1 + segment) - 1
             drawdowns.append(dd)
 
         return np.array(drawdowns)
@@ -1366,16 +1370,10 @@ def m_squared(
         # Ensure rf_mean is a float if it was a single series/df
         if isinstance(rf_mean, pd.Series):
             rf_mean = rf_mean.iloc[0]
-        (1 + rf_mean)**scale - 1
-        # PerformanceAnalytics uses Rf passed directly, which is typically already appropriate frequency.
-        # Wait, R code uses Rf.
     else:
         rf_mean = Rf
-        # In R MSquared, it just uses Rf directly without annualizing it?
-        # Let's check: (Rp - Rf)*... + Rf. If Rp is annualized, Rf should probably be annualized.
-        # But R just does Rf=0 by default and uses it directly.
-        # Wait, the formula in R uses `Rp` (annualized) and `Rf` directly.
-        # Let's use rf_val as provided by the user (usually they pass an annualized Rf or 0).
+        # R's MSquared uses Rf directly (not annualized). Formula: (Rp - Rf)*σm/σp + Rf.
+        # Users should pass Rf at the same scale as Rp (i.e., annualized or 0).
 
     rf_val = float(rf_mean)
 
@@ -1950,23 +1948,14 @@ def jensen_alpha(
             beta = capm_beta(a, b, Rf=Rf)
 
             # Use mean Rf if Rf is a series
+            # R's CAPM.jensenAlpha formula: result = Rp - Rf - beta * (Rpb - Rf)
+            # where Rp and Rpb are annualized but Rf is used as-is (NOT annualized).
+            # This is R's convention: users pass Rf at the same rate as Rp (e.g., annualized 0.035)
+            # or pass 0 as the default. The previous Rf.mean()*scale was incorrect.
             if isinstance(Rf, (pd.Series, pd.DataFrame)):
-                rf_val = Rf.mean() * scale
+                rf_val = float(Rf.mean())
             else:
-                rf_val = Rf
-
-            # Note: R's CAPM.jensenAlpha: result = Rp - Rf - beta * (Rpb - Rf)
-            # where Rp and Rpb are annualized.
-            # If Rf is given as a periodic rate (like in managers),
-            # we should annualize it too?
-            # Looking at R managers example: Rf=.035/12.
-            # If we pass Rf=.035/12 to CAPM.jensenAlpha, does it annualize it?
-            # From source: result = Rp - Rf - beta * (Rpb - Rf)
-            # It DOES NOT. So Rf is assumed to be at the same scale as Rp.
-            # However, if scale=12 and Rf=0.035/12, then Rp - Rf is subtracting monthly from yearly.
-            # Wait, 0.035/12 is 0.0029. 0.035 is already the "annualized" rate in some sense?
-            # Let's re-read CAPM.jensenAlpha example: Rf=.035/12.
-            # If Rf is passed as a constant, it's used as-is.
+                rf_val = float(Rf)
 
             j_alpha = rp - rf_val - beta * (rpb - rf_val)
             col_results.append(j_alpha)
@@ -2280,7 +2269,13 @@ def return_clean(
         return return_geltner(R)
     elif method == "boudt":
         from scipy.stats import chi2
-        from sklearn.covariance import MinCovDet
+        try:
+            from sklearn.covariance import MinCovDet
+        except ImportError as e:
+            raise ImportError(
+                "return_clean(method='boudt') requires scikit-learn. "
+                "Install it with: pip install 'pyperfanalytics[boudt]' or pip install scikit-learn"
+            ) from e
 
         if isinstance(R, pd.Series):
             df = R.to_frame()

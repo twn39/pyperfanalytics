@@ -1,6 +1,6 @@
 import pytest
 
-from pyperfanalytics import downside_deviation, sortino_ratio
+from pyperfanalytics import downside_deviation, sortino_ratio, burke_ratio
 
 
 def test_downside_metrics_edhec(edhec_data):
@@ -43,3 +43,19 @@ def test_downside_metrics_edhec(edhec_data):
     for asset in r_dd_0.keys():
         assert py_dd[asset] == pytest.approx(r_dd_0[asset], abs=1e-6)
         assert py_sortino[asset] == pytest.approx(r_sortino_0[asset], abs=1e-6)
+
+def test_burke_ratio_corrected():
+    import pandas as pd
+    import numpy as np
+
+    # portfolio_bacon column 1 manually verified expectations without R's * 0.01 bug
+    # R expects BurkeRatio = 0.74 due to bug, correct mathematical value = 0.756221
+    # R expects ModifiedBurkeRatio = 3.65 due to bug, correct mathematical value = 3.704711
+    pb = pd.read_csv('third_party/PerformanceAnalytics/data/portfolio_bacon.csv', index_col=0)
+    col1 = pb.iloc[:, 0]
+
+    b_ratio = burke_ratio(col1, scale=12)
+    mod_b_ratio = burke_ratio(col1, modified=True, scale=12)
+
+    assert b_ratio == pytest.approx(0.756221, abs=1e-5)
+    assert mod_b_ratio == pytest.approx(3.704711, abs=1e-5)

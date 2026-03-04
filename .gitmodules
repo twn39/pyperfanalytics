@@ -1,0 +1,6 @@
+[submodule "third_party/PerformanceAnalytics"]
+	path = third_party/PerformanceAnalytics
+	url = https://github.com/braverock/PerformanceAnalytics
+[submodule "third_party/PortfolioAnalytics"]
+	path = third_party/PortfolioAnalytics
+	url = https://github.com/braverock/PortfolioAnalytics

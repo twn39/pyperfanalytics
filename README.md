@@ -169,6 +169,8 @@ capture_table = pa.table_capture_ratios(returns, benchmark)
 
 Every function is verified against the R `PerformanceAnalytics` implementation using the `managers` and `edhec` standard datasets. Tests are located in the `tests/` directory and can be run using `pytest`.
 
+*Note on Accuracy:* Where R's `PerformanceAnalytics` implementation contains known mathematical bugs (such as the `BurkeRatio` inadvertently scaling decimal inputs by `0.01` during drawdown calculations), `pyperfanalytics` corrects these bugs to produce accurate results for standard percentage-based analytics. In such explicitly documented cases, the library's output will intentionally deviate from the buggy R output to prioritize mathematical correctness.
+
 ```bash
 uv run pytest
 ```
