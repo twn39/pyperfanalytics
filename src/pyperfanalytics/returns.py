@@ -813,27 +813,35 @@ def martin_ratio(
     """
     Calculate Martin ratio of the return distribution.
 
-    The Martin ratio is the annualized return minus the risk-free rate, divided
-    by the Ulcer Index. It evaluates performance similar to the Sharpe ratio but
-    penalizing drawdowns.
+    The Martin ratio is the annualized return minus the annualized risk-free rate,
+    divided by the Ulcer Index. It evaluates performance similar to the Sharpe ratio
+    but penalizes drawdowns rather than volatility.
 
     Formula:
-    $$ MartinRatio = \frac{R_{ann} - R_{f}}{UlcerIndex} $$
+    $$ MartinRatio = \frac{R_{ann} - R_{f,ann}}{UlcerIndex} $$
+
+    where $R_{f,ann} = (1 + R_f)^{scale} - 1$ is the annualized risk-free rate.
 
     Notes
     -----
-    Matches PerformanceAnalytics R bug where Rf is NOT annualized before subtraction.
+    **Deviation from R:** R's ``PerformanceAnalytics::MartinRatio`` subtracts the
+    periodic (per-period) ``Rf`` directly from the annualized portfolio return,
+    mixing units.  This implementation follows the original Peter Martin / Zephyr
+    Associates definition and annualizes ``Rf`` before subtraction, ensuring both
+    numerator terms share the same time unit (annualized return).
 
     Parameters
     ----------
     R : pd.Series or pd.DataFrame
-        Asset returns.
+        Asset returns (periodic, e.g. monthly).
     Rf : float, pd.Series, or pd.DataFrame, optional
-        Risk-free rate (periodic). Default is 0.
+        Risk-free rate **per period** (same periodicity as ``R``). Default is 0.
+        The function annualizes it internally via ``(1 + Rf)^scale - 1``.
     scale : int, optional
-        Number of periods in a year.
+        Number of periods in a year (e.g. 12 for monthly data).
+        Auto-detected from the index frequency when not supplied.
     geometric : bool, optional
-        Geometric compounding flag. Default is True.
+        Use geometric compounding for the annualized return. Default is True.
 
     Returns
     -------
@@ -848,14 +856,16 @@ def martin_ratio(
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     ui = ulcer_index(R)
 
-    # Rf in R's MartinRatio is just subtracted from Rp (which is annualized)
-    # Expected Rf is the periodic rate.
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_val = Rf.mean()
     else:
         rf_val = Rf
 
-    return (ann_ret - rf_val) / ui
+    # Annualize the periodic Rf so both terms in the numerator share the same
+    # time unit.  (1 + rf_periodic)^scale - 1 gives the equivalent annual rate.
+    rf_ann = (1 + rf_val) ** scale - 1
+
+    return (ann_ret - rf_ann) / ui
 
 def pain_ratio(
     R: Union[pd.Series, pd.DataFrame],
@@ -866,26 +876,33 @@ def pain_ratio(
     """
     Calculate Pain ratio of the return distribution.
 
-    The Pain ratio is the annualized return minus the risk-free rate, divided
-    by the Pain Index.
+    The Pain ratio is the annualized return minus the annualized risk-free rate,
+    divided by the Pain Index.
 
     Formula:
-    $$ PainRatio = \frac{R_{ann} - R_{f}}{PainIndex} $$
+    $$ PainRatio = \frac{R_{ann} - R_{f,ann}}{PainIndex} $$
+
+    where $R_{f,ann} = (1 + R_f)^{scale} - 1$ is the annualized risk-free rate.
 
     Notes
     -----
-    Matches PerformanceAnalytics R bug where Rf is NOT annualized before subtraction.
+    **Deviation from R:** R's ``PerformanceAnalytics::PainRatio`` subtracts the
+    periodic (per-period) ``Rf`` directly from the annualized portfolio return,
+    mixing units.  This implementation follows the original Zephyr Associates
+    definition and annualizes ``Rf`` before subtraction.
 
     Parameters
     ----------
     R : pd.Series or pd.DataFrame
-        Asset returns.
+        Asset returns (periodic, e.g. monthly).
     Rf : float, pd.Series, or pd.DataFrame, optional
-        Risk-free rate (periodic). Default is 0.
+        Risk-free rate **per period** (same periodicity as ``R``). Default is 0.
+        The function annualizes it internally via ``(1 + Rf)^scale - 1``.
     scale : int, optional
-        Number of periods in a year.
+        Number of periods in a year (e.g. 12 for monthly data).
+        Auto-detected from the index frequency when not supplied.
     geometric : bool, optional
-        Geometric compounding flag. Default is True.
+        Use geometric compounding for the annualized return. Default is True.
 
     Returns
     -------
@@ -900,13 +917,16 @@ def pain_ratio(
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     pi = pain_index(R)
 
-    # Match R's bug: periodic Rf
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_val = Rf.mean()
     else:
         rf_val = Rf
 
-    return (ann_ret - rf_val) / pi
+    # Annualize the periodic Rf so both terms in the numerator share the same
+    # time unit.  (1 + rf_periodic)^scale - 1 gives the equivalent annual rate.
+    rf_ann = (1 + rf_val) ** scale - 1
+
+    return (ann_ret - rf_ann) / pi
 
 def upside_risk(
     R: Union[pd.Series, pd.DataFrame],

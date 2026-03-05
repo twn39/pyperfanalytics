@@ -15,8 +15,12 @@ def test_specialized_ratios(managers_data):
     # UPR (MAR=0): 0.7503177
     # Ulcer Index: 0.0362003
     # Pain Index: 0.01566629
-    # Martin Ratio: 3.710068
-    # Pain Ratio: 8.572904
+    #
+    # NOTE — Martin Ratio and Pain Ratio deviate intentionally from R:
+    #   R uses periodic Rf against annualized Rp (unit mismatch).
+    #   We follow the Peter Martin / Zephyr Associates definition and
+    #   annualize Rf first: rf_ann = (1 + rf_monthly)^12 - 1 ≈ 3.94%/yr.
+    #   R values were: Martin=3.710068, Pain=8.572904
 
     ra = managers_data['HAM1']
     rf = managers_data['US 3m TR']
@@ -36,11 +40,11 @@ def test_specialized_ratios(managers_data):
     assert ui == pytest.approx(0.0362003, abs=1e-7)
     assert pi == pytest.approx(0.01566629, abs=1e-8)
 
-    # Martin & Pain Ratio
+    # Martin & Pain Ratio (annualized Rf — Method A, Peter Martin / Zephyr)
     mr = martin_ratio(ra, Rf=rf_mean)
     pr = pain_ratio(ra, Rf=rf_mean)
-    assert mr == pytest.approx(3.710068, abs=1e-6)
-    assert pr == pytest.approx(8.572904, abs=1e-6)
+    assert mr == pytest.approx(2.71048167, abs=1e-6)
+    assert pr == pytest.approx(6.26314607, abs=1e-6)
 
 def test_upr_full_method(managers_data):
     ra = managers_data['HAM1']
