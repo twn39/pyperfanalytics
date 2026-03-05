@@ -1096,21 +1096,30 @@ def burke_ratio(
     The Burke Ratio evaluates a portfolio's return against its drawdown risk,
     squaring drawdowns to penalize larger single losses over multiple smaller ones.
 
-    Formula:
-    $$ BurkeRatio = \frac{R_{ann} - R_f}{\\sqrt{\\sum_{t=1}^d D_t^2}} $$
+    Formula (original Burke 1994 definition):
+    $$ BurkeRatio = \\frac{R_{ann} - R_f}{\\sqrt{\\frac{\\sum_{t=1}^d D_t^2}{d}}} $$
 
-    **Note on Compatibility:**
-    R's `PerformanceAnalytics::BurkeRatio` contains a known mathematical bug where it scales 
-    decimal inputs by `0.01` when computing drawdown segments, expecting percentage inputs instead. 
-    `pyperfanalytics` fixes this bug to produce the mathematically correct ratio for standard 
-    decimal returns. Therefore, output will differ significantly from R for the same decimal inputs.
+    where $d$ is the number of distinct drawdown events. This form uses the
+    **root-mean-square (RMS)** of drawdowns, so the denominator does not
+    grow merely because there are many small drawdowns.
+
+    **Notes on deviations from other implementations:**
+
+    1. **Fixed vs paper**: The original Burke (1994) denominator is
+       $\\sqrt{\\Sigma D^2 / d}$ (mean of squared drawdowns). Some implementations
+       (including R's `PerformanceAnalytics::BurkeRatio`) use $\\sqrt{\\Sigma D^2}$
+       (sum, not mean), which differs by a factor of $\\sqrt{d}$.
+       This implementation uses the mathematically correct paper definition.
+    2. **Fixed vs R**: R's `BurkeRatio` multiplies each drawdown segment by `0.01`
+       (expecting percentage-scale inputs, e.g. 5.0 for 5%). This implementation
+       works correctly with standard decimal returns (e.g. 0.05 for 5%).
 
     Parameters
     ----------
     R : pd.Series or pd.DataFrame
-        Asset returns.
+        Asset returns (decimal format, e.g. 0.05 for 5%).
     Rf : float, pd.Series, or pd.DataFrame, optional
-        Risk-free rate. Default is 0.0.
+        Risk-free rate (same periodicity as R). Default is 0.0.
     modified : bool, optional
         If True, multiplies the ratio by $\\sqrt{n}$ where $n$ is the number of periods.
     scale : int, optional
@@ -1138,7 +1147,7 @@ def burke_ratio(
                     in_drawdown = True
             else:
                 if in_drawdown:
-                    # Corrected: no *0.01 bug for decimal returns
+                    # Corrected: no *0.01 scaling bug for decimal returns
                     segment = s_vals[start_idx:i]
                     dd = np.prod(1 + segment) - 1
                     drawdowns.append(dd)
@@ -1160,21 +1169,21 @@ def burke_ratio(
         # Annualized return
         rp = return_annualized(s, scale=scale)
 
-        # Special Burke drawdowns
+        # Burke drawdown events
         drawdowns = _get_burke_drawdowns(s)
+        d = len(drawdowns)
 
-        # R uses percentages for drawdown sum: sum(( (prod(1+Ri)-1)*100 )^2)
-        # Which is 10000 * sum(drawdowns^2)
-        # So sqrt is 100 * sqrt(sum(drawdowns^2))
-        # Denominator is in percents, so Numerator (Rp - Rf) should also be in percents.
-        # (Rp - Rf)*100 / (100 * sqrt(sum(dd^2))) = (Rp - Rf) / sqrt(sum(dd^2))
-        # The units cancel out.
-
-        denom_sq = np.sum(drawdowns**2)
-        if denom_sq == 0:
+        if d == 0:
             return np.nan
 
-        ratio = (rp - rf_val) / np.sqrt(denom_sq)
+        # Paper-correct denominator: sqrt(sum(D²) / d) = sqrt(mean(D²)) = RMS of drawdowns
+        # This matches Burke (1994) original definition.
+        # Note: R uses sqrt(sum(D²)) without dividing by d, which deviates from the paper.
+        denom = np.sqrt(np.sum(drawdowns**2) / d)
+        if denom == 0:
+            return np.nan
+
+        ratio = (rp - rf_val) / denom
         if modified:
             ratio *= np.sqrt(n)
         return float(ratio)

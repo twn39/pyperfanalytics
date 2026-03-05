@@ -48,14 +48,18 @@ def test_burke_ratio_corrected():
     import pandas as pd
     import numpy as np
 
-    # portfolio_bacon column 1 manually verified expectations without R's * 0.01 bug
-    # R expects BurkeRatio = 0.74 due to bug, correct mathematical value = 0.756221
-    # R expects ModifiedBurkeRatio = 3.65 due to bug, correct mathematical value = 3.704711
+    # portfolio_bacon column 1, d=7 drawdown events, n=24 observations
+    # Fixed two deviations from paper/R:
+    #   1. Paper fix: denominator is sqrt(sum(D²)/d) not sqrt(sum(D²))  → ratio * sqrt(d) larger
+    #   2. R fix:     R uses *0.01 scaling (expects %-inputs), Python works with decimals
+    # New paper-correct values (Burke 1994 definition with RMS denominator):
+    #   Burke Ratio = 2.000773, Modified Burke Ratio = 9.801745
+    # Supersedes old values: Burke=0.756221, ModBurke=3.704711 (were based on sqrt(sum) form)
     pb = pd.read_csv('third_party/PerformanceAnalytics/data/portfolio_bacon.csv', index_col=0)
     col1 = pb.iloc[:, 0]
 
     b_ratio = burke_ratio(col1, scale=12)
     mod_b_ratio = burke_ratio(col1, modified=True, scale=12)
 
-    assert b_ratio == pytest.approx(0.756221, abs=1e-5)
-    assert mod_b_ratio == pytest.approx(3.704711, abs=1e-5)
+    assert b_ratio == pytest.approx(2.000773, abs=1e-5)
+    assert mod_b_ratio == pytest.approx(9.801745, abs=1e-5)
