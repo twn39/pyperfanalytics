@@ -9,7 +9,7 @@ Cross-referenced Python implementations against **both**:
 ## Summary Table
 
 | Metric | vs R | vs Academic | Notes |
-|--------|--------|-------|
+|--------|--------|-------|------|
 | `var_historical` | ✅ | ✅ | Empirical quantile |
 | `var_gaussian` | ✅ | ✅ | $-\mu - z_\alpha \sigma$; standard parametric VaR |
 | `var_modified` | ✅ | ✅ | Cornish-Fisher; Favre & Galeano (2002) |
