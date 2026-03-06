@@ -6,8 +6,8 @@ from pyperfanalytics.risk import specific_risk, systematic_risk, total_risk
 
 
 def test_risk_decomposition(managers_data):
-    ham1 = managers_data['HAM1']
-    sp500 = managers_data['SP500 TR']
+    ham1 = managers_data["HAM1"]
+    sp500 = managers_data["SP500 TR"]
 
     # R Benchmarks
     # SpecificRisk: 0.06643962
@@ -22,9 +22,10 @@ def test_risk_decomposition(managers_data):
     # total_risk should be sqrt(spec^2 + sys^2)
     assert tot == pytest.approx(np.sqrt(spec**2 + sys**2), abs=1e-6)
 
+
 def test_attribution_ratios(managers_data):
-    ham1 = managers_data['HAM1']
-    sp500 = managers_data['SP500 TR']
+    ham1 = managers_data["HAM1"]
+    sp500 = managers_data["SP500 TR"]
 
     # R Benchmarks
     # CAPM.jensenAlpha: 0.09974296
@@ -36,9 +37,10 @@ def test_attribution_ratios(managers_data):
     assert ja == pytest.approx(0.09974296, abs=1e-6)
     assert ar == pytest.approx(1.501257, abs=1e-5)
 
+
 def test_market_timing(managers_data):
-    ham1 = managers_data['HAM1']
-    sp500 = managers_data['SP500 TR']
+    ham1 = managers_data["HAM1"]
+    sp500 = managers_data["SP500 TR"]
 
     # R Benchmarks TM
     #                      Alpha      Beta      Gamma

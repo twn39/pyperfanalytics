@@ -5,18 +5,21 @@ import pytest
 import pyperfanalytics as pa
 
 
-@pytest.mark.parametrize("dataset_f, bench_f, asset, rb_key", [
-    ("test_data", "r_benchmarks", "AGG", "SPY"),
-    ("test_data", "r_benchmarks", "GLD", "SPY"),
-    ("test_data", "r_benchmarks", "SPY", "SPY"),
-    ("test_data_v2", "r_benchmarks_v2", "QQQ", "QQQ"),
-    ("test_data_v2", "r_benchmarks_v2", "IWM", "QQQ"),
-    ("test_data_v2", "r_benchmarks_v2", "EEM", "QQQ"),
-    ("test_data_v3", "r_benchmarks_v3", "TSLA", "QQQ"),
-    ("test_data_v3", "r_benchmarks_v3", "NVDA", "QQQ"),
-    ("test_data_v3", "r_benchmarks_v3", "AMD", "QQQ"),
-    ("test_data_v3", "r_benchmarks_v3", "BRK-A", "QQQ"),
-])
+@pytest.mark.parametrize(
+    "dataset_f, bench_f, asset, rb_key",
+    [
+        ("test_data", "r_benchmarks", "AGG", "SPY"),
+        ("test_data", "r_benchmarks", "GLD", "SPY"),
+        ("test_data", "r_benchmarks", "SPY", "SPY"),
+        ("test_data_v2", "r_benchmarks_v2", "QQQ", "QQQ"),
+        ("test_data_v2", "r_benchmarks_v2", "IWM", "QQQ"),
+        ("test_data_v2", "r_benchmarks_v2", "EEM", "QQQ"),
+        ("test_data_v3", "r_benchmarks_v3", "TSLA", "QQQ"),
+        ("test_data_v3", "r_benchmarks_v3", "NVDA", "QQQ"),
+        ("test_data_v3", "r_benchmarks_v3", "AMD", "QQQ"),
+        ("test_data_v3", "r_benchmarks_v3", "BRK-A", "QQQ"),
+    ],
+)
 def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     data = request.getfixturevalue(dataset_f)
     # The columns from pandas read_csv will keep "BRK-A", but the JSON from R will have "BRK.A".
@@ -31,7 +34,7 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     bench_data = bench[r_key]
 
     # Tolerances
-    tol = 1e-4 # Standard for diverse data comparison
+    tol = 1e-4  # Standard for diverse data comparison
 
     # Returns & Standard Deviation
     assert pa.return_annualized(ra) == pytest.approx(bench_data["Return.annualized"], abs=tol)
@@ -75,10 +78,12 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     assert pa.downside_frequency(ra, MAR=rf.mean()) == pytest.approx(bench_data["DownsideFrequency"], abs=tol)
     assert pa.m2_sortino(ra, rb, MAR=rf.mean()) == pytest.approx(bench_data["M2Sortino"], abs=tol)
     assert pa.m_squared(ra, rb, Rf=rf) == pytest.approx(bench_data["MSquared"], abs=tol)
-    assert pa.m_squared_excess(ra, rb, Rf=rf, method="geometric") == \
-           pytest.approx(bench_data["MSquaredExcess_geom"], abs=tol)
-    assert pa.m_squared_excess(ra, rb, Rf=rf, method="arithmetic") == \
-           pytest.approx(bench_data["MSquaredExcess_arith"], abs=tol)
+    assert pa.m_squared_excess(ra, rb, Rf=rf, method="geometric") == pytest.approx(
+        bench_data["MSquaredExcess_geom"], abs=tol
+    )
+    assert pa.m_squared_excess(ra, rb, Rf=rf, method="arithmetic") == pytest.approx(
+        bench_data["MSquaredExcess_arith"], abs=tol
+    )
     assert pa.net_selectivity(ra, rb, Rf=rf) == pytest.approx(bench_data["NetSelectivity"], abs=tol)
     assert pa.omega_excess_return(ra, rb, MAR=rf.mean()) == pytest.approx(bench_data["OmegaExcessReturn"], abs=tol)
     assert pa.omega_sharpe_ratio(ra, MAR=rf.mean()) == pytest.approx(bench_data["OmegaSharpeRatio"], abs=tol)

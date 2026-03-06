@@ -21,6 +21,7 @@ def managers_data():
     df = pd.read_csv("data/managers.csv", index_col=0, parse_dates=True)
     return df["1996":"2006"]
 
+
 def test_msquared(managers_data):
     m = managers_data
     bench = pd.read_csv("tests/benchmarks/msquared.csv", index_col=0)
@@ -38,6 +39,7 @@ def test_msquared(managers_data):
 
     np.testing.assert_allclose(res_df.values, bench.values, atol=1e-4)
 
+
 def test_msquared_excess(managers_data):
     m = managers_data
     bench_geo = pd.read_csv("tests/benchmarks/msquared_excess_geo.csv", index_col=0)
@@ -46,11 +48,14 @@ def test_msquared_excess(managers_data):
     res_geo = m_squared_excess(m.iloc[:, 0:5], m.iloc[:, 7], Rf=0, method="geometric")
     res_ari = m_squared_excess(m.iloc[:, 0:5], m.iloc[:, 7], Rf=0, method="arithmetic")
 
-    if isinstance(res_geo, pd.Series): res_geo = res_geo.to_frame().T
-    if isinstance(res_ari, pd.Series): res_ari = res_ari.to_frame().T
+    if isinstance(res_geo, pd.Series):
+        res_geo = res_geo.to_frame().T
+    if isinstance(res_ari, pd.Series):
+        res_ari = res_ari.to_frame().T
 
     np.testing.assert_allclose(res_geo.values, bench_geo.values, atol=1e-4)
     np.testing.assert_allclose(res_ari.values, bench_ari.values, atol=1e-4)
+
 
 def test_appraisal_ratio(managers_data):
     m = managers_data
@@ -58,16 +63,20 @@ def test_appraisal_ratio(managers_data):
     bench = pd.read_csv("tests/benchmarks/appraisal_ratio_app.csv", index_col=0)
     res = appraisal_ratio(m.iloc[:, 0:5], m.iloc[:, 7], Rf=0)
 
-    if isinstance(res, pd.Series): res = res.to_frame().T
+    if isinstance(res, pd.Series):
+        res = res.to_frame().T
     np.testing.assert_allclose(res.values, bench.values, atol=1e-4)
+
 
 def test_net_selectivity(managers_data):
     m = managers_data
     bench = pd.read_csv("tests/benchmarks/net_selectivity.csv", index_col=0)
     res = net_selectivity(m.iloc[:, 0:5], m.iloc[:, 7], Rf=0)
 
-    if isinstance(res, pd.Series): res = res.to_frame().T
+    if isinstance(res, pd.Series):
+        res = res.to_frame().T
     np.testing.assert_allclose(res.values, bench.values, atol=1e-4)
+
 
 def test_kappa(managers_data):
     m = managers_data
@@ -83,12 +92,14 @@ def test_kappa(managers_data):
     np.testing.assert_allclose(res_l1.values.reshape(1, -1), bench_l1.values, atol=1e-4)
     np.testing.assert_allclose(res_l2.values.reshape(1, -1), bench_l2.values, atol=1e-4)
 
+
 def test_prospect_ratio(managers_data):
     m = managers_data
     bench = pd.read_csv("tests/benchmarks/prospect_ratio.csv", index_col=0)
     res = prospect_ratio(m.iloc[:, 0:5], MAR=0)
 
     np.testing.assert_allclose(res.values.reshape(1, -1), bench.values, atol=1e-4)
+
 
 def test_table_capture_ratios(managers_data):
     m = managers_data
@@ -100,6 +111,7 @@ def test_table_capture_ratios(managers_data):
     res.columns = bench.columns
     assert_frame_equal(res, bench, atol=1e-4)
 
+
 def test_table_up_down_ratios(managers_data):
     m = managers_data
     bench = pd.read_csv("tests/benchmarks/table_up_down_ratios.csv", index_col=0)
@@ -107,6 +119,7 @@ def test_table_up_down_ratios(managers_data):
 
     res.columns = bench.columns
     assert_frame_equal(res, bench, atol=1e-4)
+
 
 def test_table_annualized_returns(managers_data):
     m = managers_data

@@ -1,115 +1,109 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Union, Optional, List
 
-from pyperfanalytics.returns import return_cumulative
 from pyperfanalytics.drawdowns import drawdowns
 
+
 def chart_cum_returns(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     wealth_index: bool = False,
     geometric: bool = True,
     begin: str = "axis",
     title: str = "Cumulative Returns",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a cumulative returns chart using Plotly.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
-    
+
     fig = go.Figure()
-    
+
     # Calculate cumulative returns
-    # R implementation: 
+    # R implementation:
     # if wealth_index: starts at 1
     # else: starts at 0
     one = 0 if wealth_index else 1
-    
+
     for i, col in enumerate(R.columns):
         series = R[col].dropna()
         if series.empty:
             continue
-            
+
         if geometric:
             cum_ret = (1 + series).cumprod() - one
         else:
             cum_ret = (1 - one) + series.cumsum()
-            
+
         # Add a starting point of (1-one) if not already there
         # R's chart.CumReturns often adds a starting point at the axis
-        start_date = series.index[0]
+        series.index[0]
         # To make it look like R, we might want to prepend a 0/1 at the period before
         # but for now let's keep it simple.
-        
+
         color = colorset[i % len(colorset)] if colorset else None
-        
-        fig.add_trace(go.Scatter(
-            x=cum_ret.index,
-            y=cum_ret.values,
-            mode='lines',
-            name=col,
-            line=dict(color=color)
-        ))
-        
+
+        fig.add_trace(go.Scatter(x=cum_ret.index, y=cum_ret.values, mode="lines", name=col, line=dict(color=color)))
+
     fig.update_layout(
         title=title,
         xaxis_title="Date",
         yaxis_title="Cumulative Return" if not wealth_index else "Value of $1",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        template="plotly_white"
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_bar_returns(
-    R: Union[pd.Series, pd.DataFrame],
-    title: str = "Returns",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    R: pd.Series | pd.DataFrame, title: str = "Returns", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
     """
     Create a bar chart of period returns. Uses 'overlay' mode to maintain bar thickness.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     fig = go.Figure()
-    
+
     for i, col in enumerate(R.columns):
         series = R[col].dropna()
         color = colorset[i % len(colorset)] if colorset else None
-        
-        fig.add_trace(go.Bar(
-            x=series.index,
-            y=series.values,
-            name=col,
-            marker_color=color,
-            marker_line_width=0.5, # Add a very thin line to define edges
-            marker_line_color=color,
-            opacity=0.7 # Transparency allows seeing overlapping bars
-        ))
-        
+
+        fig.add_trace(
+            go.Bar(
+                x=series.index,
+                y=series.values,
+                name=col,
+                marker_color=color,
+                marker_line_width=0.5,  # Add a very thin line to define edges
+                marker_line_color=color,
+                opacity=0.7,  # Transparency allows seeing overlapping bars
+            )
+        )
+
     fig.update_layout(
         title=title,
         xaxis_title="Date",
         yaxis_title="Return",
-        barmode='overlay', # Change from 'group' to 'overlay' to keep bars thick
-        template="plotly_white"
+        barmode="overlay",  # Change from 'group' to 'overlay' to keep bars thick
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_drawdown(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     geometric: bool = True,
     title: str = "Drawdown",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a drawdown (underwater) chart.
@@ -117,38 +111,36 @@ def chart_drawdown(
     dd = drawdowns(R, geometric=geometric)
     if isinstance(dd, pd.Series):
         dd = dd.to_frame()
-        
+
     fig = go.Figure()
-    
+
     for i, col in enumerate(dd.columns):
         series = dd[col].dropna()
         color = colorset[i % len(colorset)] if colorset else None
-        
-        fig.add_trace(go.Scatter(
-            x=series.index,
-            y=series.values,
-            mode='lines',
-            name=col,
-            fill='tozeroy', # Fill area to zero
-            line=dict(color=color)
-        ))
-        
-    fig.update_layout(
-        title=title,
-        xaxis_title="Date",
-        yaxis_title="Drawdown",
-        template="plotly_white"
-    )
-    
+
+        fig.add_trace(
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                mode="lines",
+                name=col,
+                fill="tozeroy",  # Fill area to zero
+                line=dict(color=color),
+            )
+        )
+
+    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Drawdown", template="plotly_white")
+
     return fig
 
+
 def charts_performance_summary(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     geometric: bool = True,
     wealth_index: bool = False,
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a combined chart with Cumulative Returns, Daily Returns, and Drawdown.
@@ -156,112 +148,127 @@ def charts_performance_summary(
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     if main is None:
         main = f"{R.columns[0]} Performance"
-        
+
     # Create subplots: 3 rows, 1 column
     # Shared x-axis
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
         subplot_titles=("Cumulative Return", "Returns", "Drawdown"),
-        row_heights=[0.5, 0.25, 0.25]
+        row_heights=[0.5, 0.25, 0.25],
     )
-    
+
     # Cumulative Returns
     one = 0 if wealth_index else 1
     for i, col in enumerate(R.columns):
         series = R[col].dropna()
-        if series.empty: continue
-        
+        if series.empty:
+            continue
+
         if geometric:
             cum_ret = (1 + series).cumprod() - one
         else:
             cum_ret = (1 - one) + series.cumsum()
-            
+
         color = colorset[i % len(colorset)] if colorset else None
-        
+
         fig.add_trace(
             go.Scatter(x=cum_ret.index, y=cum_ret.values, name=col, legendgroup=col, line=dict(color=color)),
-            row=1, col=1
+            row=1,
+            col=1,
         )
-        
+
     # Bar Returns
     for i, col in enumerate(R.columns):
         series = R[col].dropna()
         color = colorset[i % len(colorset)] if colorset else None
         fig.add_trace(
             go.Bar(x=series.index, y=series.values, name=col, legendgroup=col, showlegend=False, marker_color=color),
-            row=2, col=1
+            row=2,
+            col=1,
         )
-        
+
     # Drawdown
     dd = drawdowns(R, geometric=geometric)
-    if isinstance(dd, pd.Series): dd = dd.to_frame()
+    if isinstance(dd, pd.Series):
+        dd = dd.to_frame()
     for i, col in enumerate(dd.columns):
         series = dd[col].dropna()
         color = colorset[i % len(colorset)] if colorset else None
         fig.add_trace(
-            go.Scatter(x=series.index, y=series.values, name=col, legendgroup=col, showlegend=False, fill='tozeroy', line=dict(color=color)),
-            row=3, col=1
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                name=col,
+                legendgroup=col,
+                showlegend=False,
+                fill="tozeroy",
+                line=dict(color=color),
+            ),
+            row=3,
+            col=1,
         )
-        
-    fig.update_layout(
-        height=800,
-        title_text=main,
-        template="plotly_white",
-        hovermode="x unified"
-    )
-    
+
+    fig.update_layout(height=800, title_text=main, template="plotly_white", hovermode="x unified")
+
     # Update y-axis titles
     fig.update_yaxes(title_text="Cum. Return", row=1, col=1)
     fig.update_yaxes(title_text="Return", row=2, col=1)
     fig.update_yaxes(title_text="Drawdown", row=3, col=1)
-    
+
     return fig
 
+
 def chart_bar_var(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     width: int = 0,
     gap: int = 12,
-    methods: Union[str, List[str]] = ["ModifiedVaR", "GaussianVaR"],
+    methods: str | list[str] | None = None,
     p: float = 0.95,
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
+    main: str | None = None,
+    colorset: list[str] | None = None,
     show_symmetric: bool = False,
     show_horizontal: bool = False,
-    **kwargs
+    **kwargs,
 ) -> go.Figure:
     """
     Plot periodic returns as a bar chart with a risk metric overlay.
     Matches PerformanceAnalytics style with interactive Plotly overlays.
     """
-    from pyperfanalytics.risk import var_modified, var_gaussian, var_historical, es_modified, es_gaussian, es_historical
+    if methods is None:
+        methods = ["ModifiedVaR", "GaussianVaR"]
+
+    from pyperfanalytics.risk import es_gaussian, es_historical, es_modified, var_gaussian, var_historical, var_modified
 
     if isinstance(R, pd.Series):
         R = R.to_frame()
-    
+
     if isinstance(methods, str):
         methods = [methods]
-        
+
     fig = go.Figure()
-    
+
     # 1. Bar Chart (Returns)
     col = R.columns[0]
     series = R[col].dropna()
-    
-    fig.add_trace(go.Bar(
-        x=series.index,
-        y=series.values,
-        name=f"Return",
-        marker_color="#D3D3D3", # Professional light gray for bars
-        marker_line_width=0,
-        opacity=0.7,
-        hovertemplate="Date: %{x}<br>Return: %{y:.4f}<extra></extra>"
-    ))
-    
+
+    fig.add_trace(
+        go.Bar(
+            x=series.index,
+            y=series.values,
+            name="Return",
+            marker_color="#D3D3D3",  # Professional light gray for bars
+            marker_line_width=0,
+            opacity=0.7,
+            hovertemplate="Date: %{x}<br>Return: %{y:.4f}<extra></extra>",
+        )
+    )
+
     # 2. Risk Mapping
     risk_mapping = {
         "ModifiedVaR": var_modified,
@@ -270,19 +277,21 @@ def chart_bar_var(
         "ModifiedES": es_modified,
         "GaussianES": es_gaussian,
         "HistoricalES": es_historical,
-        "StdDev": lambda x, **kwargs: x.std(ddof=1)
+        "StdDev": lambda x, **kwargs: x.std(ddof=1),
     }
-    
+
     # Coordinated professional palette
-    risk_colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
-    
+    risk_colors = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"]
+
     # 3. Calculate and Add Risk Lines
     for i, method in enumerate(methods):
-        if method == "none": continue
-        
+        if method == "none":
+            continue
+
         func = risk_mapping.get(method)
-        if not func: continue
-            
+        if not func:
+            continue
+
         risk_vals = []
         for t in range(1, len(series) + 1):
             if width == 0:
@@ -295,76 +304,84 @@ def chart_bar_var(
                 if t < width:
                     risk_vals.append(np.nan)
                 else:
-                    window = series.iloc[t-width:t]
+                    window = series.iloc[t - width : t]
                     risk_vals.append(-abs(func(window, p=p)))
-        
+
         risk_series = pd.Series(risk_vals, index=series.index)
         color = colorset[i % len(colorset)] if colorset else risk_colors[i % len(risk_colors)]
-        
+
         # Latest value for horizontal line
         latest_val = risk_series.dropna().iloc[-1] if not risk_series.dropna().empty else None
-        
-        fig.add_trace(go.Scatter(
-            x=risk_series.index,
-            y=risk_series.values,
-            mode='lines',
-            name=method,
-            line=dict(color=color, width=2.5),
-            hovertemplate=f"{method}: %{{y:.4f}}<extra></extra>"
-        ))
-        
+
+        fig.add_trace(
+            go.Scatter(
+                x=risk_series.index,
+                y=risk_series.values,
+                mode="lines",
+                name=method,
+                line=dict(color=color, width=2.5),
+                hovertemplate=f"{method}: %{{y:.4f}}<extra></extra>",
+            )
+        )
+
         if show_horizontal and latest_val is not None:
             fig.add_hline(
-                y=latest_val, 
-                line_dash="dot", 
-                line_color=color, 
+                y=latest_val,
+                line_dash="dot",
+                line_color=color,
                 line_width=1,
-                annotation_text=f"Latest {method}", 
-                annotation_position="bottom left"
+                annotation_text=f"Latest {method}",
+                annotation_position="bottom left",
             )
-        
+
         if show_symmetric:
-            fig.add_trace(go.Scatter(
-                x=risk_series.index, y=-risk_series.values,
-                mode='lines', name=f"{method} (Upper)",
-                line=dict(color=color, dash='dash', width=1),
-                showlegend=False, hoverinfo='skip'
-            ))
-            
+            fig.add_trace(
+                go.Scatter(
+                    x=risk_series.index,
+                    y=-risk_series.values,
+                    mode="lines",
+                    name=f"{method} (Upper)",
+                    line=dict(color=color, dash="dash", width=1),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
     fig.update_layout(
         title=main or f"{col} Returns with Risk Thresholds",
         xaxis_title="Date",
         yaxis_title="Return / Risk",
         template="plotly_white",
         hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    
+
     return fig
 
+
 def chart_rolling_performance(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     width: int = 12,
     FUN: str = "return_annualized",
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Wrapper to create a chart of rolling performance metrics in a line chart.
     """
     import pyperfanalytics as pa
-    
+
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     # Map string function name to actual function
     func = getattr(pa, FUN, None)
     if func is None:
         raise ValueError(f"Function {FUN} not found in pyperfanalytics.")
-        
+
     results = pd.DataFrame(index=R.index)
-    
+
     for col in R.columns:
         series = R[col]
         # Custom rolling apply because some functions need the whole series or extra args
@@ -373,115 +390,118 @@ def chart_rolling_performance(
             if i < width - 1:
                 rolling_vals.append(np.nan)
             else:
-                window = series.iloc[i-width+1:i+1]
+                window = series.iloc[i - width + 1 : i + 1]
                 # Pass kwargs (like scale, geometric, etc.)
                 val = func(window, **kwargs)
-                if hasattr(val, "iloc"): val = val.iloc[0]
+                if hasattr(val, "iloc"):
+                    val = val.iloc[0]
                 rolling_vals.append(val)
         results[col] = rolling_vals
-        
+
     fig = go.Figure()
     for i, col in enumerate(results.columns):
         color = colorset[i % len(colorset)] if colorset else None
-        fig.add_trace(go.Scatter(
-            x=results.index,
-            y=results[col],
-            mode='lines',
-            name=col,
-            line=dict(color=color)
-        ))
-        
+        fig.add_trace(go.Scatter(x=results.index, y=results[col], mode="lines", name=col, line=dict(color=color)))
+
     fig.update_layout(
-        title=main or f"Rolling {width}-period {FUN}",
-        xaxis_title="Date",
-        yaxis_title=FUN,
-        template="plotly_white"
+        title=main or f"Rolling {width}-period {FUN}", xaxis_title="Date", yaxis_title=FUN, template="plotly_white"
     )
-    
+
     return fig
 
+
 def chart_var_sensitivity(
-    R: Union[pd.Series, pd.DataFrame],
-    methods: List[str] = ["GaussianVaR", "ModifiedVaR", "HistoricalVaR", "GaussianES", "ModifiedES", "HistoricalES"],
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    R: pd.Series | pd.DataFrame,
+    methods: list[str] | None = None,
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a chart of Value-at-Risk and Expected Shortfall estimates by confidence interval.
     Matches PerformanceAnalytics style: shows negative return values (downward sloping).
     """
-    from pyperfanalytics.risk import var_modified, var_gaussian, var_historical, es_modified, es_gaussian, es_historical
+    if methods is None:
+        methods = ["GaussianVaR", "ModifiedVaR", "HistoricalVaR", "GaussianES", "ModifiedES", "HistoricalES"]
+
+    from pyperfanalytics.risk import es_gaussian, es_historical, es_modified, var_gaussian, var_historical, var_modified
 
     if isinstance(R, pd.DataFrame):
         series = R.iloc[:, 0].dropna()
     else:
         series = R.dropna()
-        
+
     # Standard ascending sequence for X-axis
     p_seq = np.linspace(0.89, 0.99, 21)
-    
+
     risk_mapping = {
         "GaussianVaR": var_gaussian,
         "ModifiedVaR": var_modified,
         "HistoricalVaR": var_historical,
         "GaussianES": es_gaussian,
         "ModifiedES": es_modified,
-        "HistoricalES": es_historical
+        "HistoricalES": es_historical,
     }
-    
+
     fig = go.Figure()
-    
+
     # Professional coordinated palette (Plotly default sequence is well-balanced)
-    default_colors = [
-        '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3'
-    ]
-    
+    default_colors = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"]
+
     for i, method in enumerate(methods):
         func = risk_mapping.get(method)
-        if not func: continue
-        
+        if not func:
+            continue
+
         vals = []
         for p in p_seq:
             val = func(series, p=p)
-            if hasattr(val, "iloc"): val = val.iloc[0]
+            if isinstance(val, (pd.Series, pd.DataFrame)):
+                val = val.iloc[0]
             vals.append(-abs(val))
-            
+
         color = colorset[i % len(colorset)] if colorset else default_colors[i % len(default_colors)]
-        fig.add_trace(go.Scatter(
-            x=p_seq,
-            y=vals,
-            mode='lines+markers',
-            name=method,
-            line=dict(color=color, width=2.5),
-            marker=dict(size=5, opacity=0.8),
-            opacity=0.9
-        ))
-        
+        fig.add_trace(
+            go.Scatter(
+                x=p_seq,
+                y=vals,
+                mode="lines+markers",
+                name=method,
+                line=dict(color=color, width=2.5),
+                marker=dict(size=5, opacity=0.8),
+                opacity=0.9,
+            )
+        )
+
     fig.update_layout(
-        title=main or f"Risk Confidence Sensitivity",
+        title=main or "Risk Confidence Sensitivity",
         xaxis_title="Confidence Level",
         yaxis_title="Value at Risk / Expected Shortfall (Return)",
         template="plotly_white",
-        hovermode="x unified"
+        hovermode="x unified",
     )
-    
+
     return fig
 
+
 def chart_histogram(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     breaks: int = 30,
-    methods: List[str] = ["add.density", "add.normal", "add.risk"],
+    methods: list[str] | None = None,
     p: float = 0.95,
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a histogram of returns with optional curve fits and risk markers.
     """
-    from scipy.stats import norm, gaussian_kde
-    from pyperfanalytics.risk import var_modified, var_historical
+    if methods is None:
+        methods = ["add.density", "add.normal", "add.risk"]
+
+    from scipy.stats import gaussian_kde, norm
+
+    from pyperfanalytics.risk import var_historical, var_modified
 
     if isinstance(R, pd.DataFrame):
         series = R.iloc[:, 0].dropna()
@@ -491,65 +511,84 @@ def chart_histogram(
     fig = go.Figure()
 
     # Histogram
-    fig.add_trace(go.Histogram(
-        x=series,
-        nbinsx=breaks,
-        name="Frequency",
-        histnorm='probability density' if any(m in methods for m in ["add.density", "add.normal"]) else '',
-        marker_color="lightgray" if colorset is None else colorset[0],
-        opacity=0.7
-    ))
+    fig.add_trace(
+        go.Histogram(
+            x=series,
+            nbinsx=breaks,
+            name="Frequency",
+            histnorm="probability density" if any(m in methods for m in ["add.density", "add.normal"]) else "",
+            marker_color="lightgray" if colorset is None else colorset[0],
+            opacity=0.7,
+        )
+    )
 
     x_range = np.linspace(series.min(), series.max(), 200)
 
     if "add.normal" in methods:
         mu, std = series.mean(), series.std(ddof=1)
         p_normal = norm.pdf(x_range, mu, std)
-        fig.add_trace(go.Scatter(
-            x=x_range, y=p_normal, mode='lines', name='Normal Dist',
-            line=dict(color=colorset[1] if colorset and len(colorset)>1 else 'blue')
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=p_normal,
+                mode="lines",
+                name="Normal Dist",
+                line=dict(color=colorset[1] if colorset and len(colorset) > 1 else "blue"),
+            )
+        )
 
     if "add.density" in methods:
         kde = gaussian_kde(series)
         p_kde = kde(x_range)
-        fig.add_trace(go.Scatter(
-            x=x_range, y=p_kde, mode='lines', name='KDE',
-            line=dict(color=colorset[2] if colorset and len(colorset)>2 else 'green')
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=p_kde,
+                mode="lines",
+                name="KDE",
+                line=dict(color=colorset[2] if colorset and len(colorset) > 2 else "green"),
+            )
+        )
 
     if "add.risk" in methods:
         # Calculate VaR
         mvar = var_modified(series, p=p)
         hvar = var_historical(series, p=p)
-        
+
         # We plot them as vertical lines
         # var_modified usually returns positive loss, but on histogram we want the return value
         # In PA, invert=TRUE returns the quantile value (negative)
         # Our risk functions return positive loss. So -abs(val) is the location on x-axis.
-        for i, (val, label, color) in enumerate([(-abs(mvar), f"{p*100}% ModVaR", "red"), (-abs(hvar), f"{p*100}% HistVaR", "darkred")]):
-            fig.add_vline(x=val, line_dash="dash", line_color=color, 
-                          annotation_text=label, 
-                          annotation_position="top left",
-                          annotation_textangle=-90,
-                          annotation_yshift=10) # Small shift up to clear the axis line if needed
+        for _i, (val, label, color) in enumerate(
+            [(-abs(mvar), f"{p * 100}% ModVaR", "red"), (-abs(hvar), f"{p * 100}% HistVaR", "darkred")]
+        ):
+            fig.add_vline(
+                x=val,
+                line_dash="dash",
+                line_color=color,
+                annotation_text=label,
+                annotation_position="top left",
+                annotation_textangle=-90,
+                annotation_yshift=10,
+            )  # Small shift up to clear the axis line if needed
 
     fig.update_layout(
         title=main or f"Histogram of {series.name if hasattr(series, 'name') else 'Returns'}",
         xaxis_title="Returns",
         yaxis_title="Density" if any(m in methods for m in ["add.density", "add.normal"]) else "Frequency",
-        template="plotly_white"
+        template="plotly_white",
     )
 
     return fig
 
+
 def chart_boxplot(
-    R: Union[pd.Series, pd.DataFrame],
-    sort_by: Optional[str] = None,
+    R: pd.Series | pd.DataFrame,
+    sort_by: str | None = None,
     sort_ascending: bool = True,
     main: str = "Return Distribution Comparison",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create an aesthetically enhanced horizontal box and whiskers plot.
@@ -569,26 +608,28 @@ def chart_boxplot(
         cols = R.columns[::-1]
 
     fig = go.Figure()
-    
+
     # Professional uniform color or muted palette
-    fill_color = colorset[0] if colorset else 'rgba(99, 110, 250, 0.5)'
-    line_color = colorset[1] if colorset and len(colorset) > 1 else 'rgb(99, 110, 250)'
+    fill_color = colorset[0] if colorset else "rgba(99, 110, 250, 0.5)"
+    line_color = colorset[1] if colorset and len(colorset) > 1 else "rgb(99, 110, 250)"
 
     for col in cols:
-        fig.add_trace(go.Box(
-            x=R[col], # x for horizontal
-            name=col,
-            marker=dict(
-                color=line_color,
-                size=4,
-                outliercolor='rgba(239, 85, 59, 0.6)',
-                line=dict(width=1, color='rgba(239, 85, 59, 0.6)')
-            ),
-            fillcolor=fill_color,
-            line=dict(width=1.5),
-            boxpoints='outliers', # Only show outliers to keep it clean
-            orientation='h'
-        ))
+        fig.add_trace(
+            go.Box(
+                x=R[col],  # x for horizontal
+                name=col,
+                marker=dict(
+                    color=line_color,
+                    size=4,
+                    outliercolor="rgba(239, 85, 59, 0.6)",
+                    line=dict(width=1, color="rgba(239, 85, 59, 0.6)"),
+                ),
+                fillcolor=fill_color,
+                line=dict(width=1.5),
+                boxpoints="outliers",  # Only show outliers to keep it clean
+                orientation="h",
+            )
+        )
 
     fig.update_layout(
         title=main,
@@ -596,18 +637,15 @@ def chart_boxplot(
         yaxis_title="Assets",
         template="plotly_white",
         showlegend=False,
-        height=max(400, 40 * len(cols)), # Dynamic height based on number of assets
-        margin=dict(l=150), # Extra space for long asset names
-        xaxis=dict(zeroline=True, zerolinecolor='black', gridcolor='lightgray')
+        height=max(400, 40 * len(cols)),  # Dynamic height based on number of assets
+        margin=dict(l=150),  # Extra space for long asset names
+        xaxis=dict(zeroline=True, zerolinecolor="black", gridcolor="lightgray"),
     )
 
     return fig
 
-def chart_qqplot(
-    R: Union[pd.Series, pd.DataFrame],
-    main: Optional[str] = None,
-    **kwargs
-) -> go.Figure:
+
+def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs) -> go.Figure:
     """
     Create an aesthetically enhanced Q-Q plot with confidence bands.
     """
@@ -628,61 +666,59 @@ def chart_qqplot(
     n = len(series)
     x_range = np.linspace(osm.min(), osm.max(), 100)
     y_line = slope * x_range + intercept
-    
+
     # Simple approximation for confidence bands
     # Based on the formula: SE(q) = (1/f(q)) * sqrt(p(1-p)/n)
     # For a normal distribution, f(q) is the PDF.
     p = stats.norm.cdf(x_range)
     se = (1.0 / stats.norm.pdf(x_range)) * np.sqrt(p * (1 - p) / n) * slope
-    
-    fig.add_trace(go.Scatter(
-        x=np.concatenate([x_range, x_range[::-1]]),
-        y=np.concatenate([y_line + 1.96 * se, (y_line - 1.96 * se)[::-1]]),
-        fill='toself',
-        fillcolor='rgba(239, 85, 59, 0.1)',
-        line=dict(color='rgba(255,255,255,0)'),
-        hoverinfo="skip",
-        name="95% CI",
-        showlegend=True
-    ))
+
+    fig.add_trace(
+        go.Scatter(
+            x=np.concatenate([x_range, x_range[::-1]]),
+            y=np.concatenate([y_line + 1.96 * se, (y_line - 1.96 * se)[::-1]]),
+            fill="toself",
+            fillcolor="rgba(239, 85, 59, 0.1)",
+            line=dict(color="rgba(255,255,255,0)"),
+            hoverinfo="skip",
+            name="95% CI",
+            showlegend=True,
+        )
+    )
 
     # 3. Reference Line
-    fig.add_trace(go.Scatter(
-        x=x_range, y=y_line,
-        mode='lines',
-        name='Normal Reference',
-        line=dict(color='#EF553B', width=2, dash='dash')
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=x_range, y=y_line, mode="lines", name="Normal Reference", line=dict(color="#EF553B", width=2, dash="dash")
+        )
+    )
 
     # 4. Sample Points
-    fig.add_trace(go.Scatter(
-        x=osm, y=osr,
-        mode='markers',
-        name='Sample Quantiles',
-        marker=dict(
-            size=7, 
-            color='#636EFA', 
-            opacity=0.6,
-            line=dict(width=0.5, color='white')
+    fig.add_trace(
+        go.Scatter(
+            x=osm,
+            y=osr,
+            mode="markers",
+            name="Sample Quantiles",
+            marker=dict(size=7, color="#636EFA", opacity=0.6, line=dict(width=0.5, color="white")),
         )
-    ))
+    )
 
     fig.update_layout(
         title=main or f"Normal Q-Q Plot: {series.name if hasattr(series, 'name') else 'Returns'}",
         xaxis_title="Theoretical Quantiles",
         yaxis_title="Sample Quantiles",
         template="plotly_white",
-        width=800, height=800, # Square aspect ratio is standard for QQ
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        width=800,
+        height=800,  # Square aspect ratio is standard for QQ
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     return fig
 
+
 def chart_correlation(
-    R: Union[pd.Series, pd.DataFrame],
-    main: str = "Correlation Matrix",
-    method: str = "pearson",
-    **kwargs
+    R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs
 ) -> go.Figure:
     """
     Visualization of a Correlation Matrix matching PerformanceAnalytics style.
@@ -690,32 +726,33 @@ def chart_correlation(
     - Lower Triangle: Scatter Plot + Linear Fit
     - Upper Triangle: Correlation Coefficient (text)
     """
-    from scipy.stats import pearsonr, gaussian_kde
     import numpy as np
+    from scipy.stats import gaussian_kde, pearsonr
 
     if isinstance(R, pd.Series):
         R = R.to_frame()
-    
+
     R = R.dropna()
     cols = R.columns
     n = len(cols)
-    
+
     # Create N x N subplots
     fig = make_subplots(
-        rows=n, cols=n,
+        rows=n,
+        cols=n,
         shared_xaxes=False,
         shared_yaxes=False,
         vertical_spacing=0.02,
         horizontal_spacing=0.02,
         column_titles=cols.tolist() if n < 10 else None,
-        row_titles=cols.tolist() if n < 10 else None
+        row_titles=cols.tolist() if n < 10 else None,
     )
 
-    for i in range(n): # row
-        for j in range(n): # col
+    for i in range(n):  # row
+        for j in range(n):  # col
             row_idx = i + 1
             col_idx = j + 1
-            
+
             x_data = R.iloc[:, j]
             y_data = R.iloc[:, i]
 
@@ -723,393 +760,470 @@ def chart_correlation(
                 # --- Diagonal: Histogram + KDE ---
                 fig.add_trace(
                     go.Histogram(x=x_data, name=cols[j], showlegend=False, marker_color="lightgray", nbinsx=20),
-                    row=row_idx, col=col_idx
+                    row=row_idx,
+                    col=col_idx,
                 )
                 # Add KDE (optional, but R has it)
-                kde = gaussian_kde(x_data)
-                xk = np.linspace(x_data.min(), x_data.max(), 100)
+                gaussian_kde(x_data)
+                np.linspace(x_data.min(), x_data.max(), 100)
                 # Scale KDE to histogram height approximately or use secondary y-axis
                 # For simplicity, we just add the hist.
-                
+
             elif i > j:
                 # --- Lower Triangle: Scatter + Trendline ---
                 fig.add_trace(
-                    go.Scatter(x=x_data, y=y_data, mode='markers', marker=dict(size=4, color='blue', opacity=0.5), showlegend=False),
-                    row=row_idx, col=col_idx
+                    go.Scatter(
+                        x=x_data,
+                        y=y_data,
+                        mode="markers",
+                        marker=dict(size=4, color="blue", opacity=0.5),
+                        showlegend=False,
+                    ),
+                    row=row_idx,
+                    col=col_idx,
                 )
                 # Add linear trendline
                 m, b = np.polyfit(x_data, y_data, 1)
                 fig.add_trace(
-                    go.Scatter(x=x_data, y=m*x_data + b, mode='lines', line=dict(color='red', width=1), showlegend=False),
-                    row=row_idx, col=col_idx
+                    go.Scatter(
+                        x=x_data, y=m * x_data + b, mode="lines", line=dict(color="red", width=1), showlegend=False
+                    ),
+                    row=row_idx,
+                    col=col_idx,
                 )
-                
+
             else:
                 # --- Upper Triangle: Correlation Text ---
                 r, p = pearsonr(x_data, y_data)
-                
+
                 # Significance stars
                 stars = ""
-                if p < 0.001: stars = "***"
-                elif p < 0.01: stars = "**"
-                elif p < 0.05: stars = "*"
-                elif p < 0.1: stars = "."
-                
+                if p < 0.001:
+                    stars = "***"
+                elif p < 0.01:
+                    stars = "**"
+                elif p < 0.05:
+                    stars = "*"
+                elif p < 0.1:
+                    stars = "."
+
                 # Size based on correlation magnitude (like R)
                 font_size = 10 + abs(r) * 20
-                
+
                 fig.add_trace(
                     go.Scatter(
-                        x=[0.5], y=[0.5],
+                        x=[0.5],
+                        y=[0.5],
                         mode="text",
                         text=[f"{r:.4f}{stars}"],
                         textfont=dict(size=font_size),
-                        showlegend=False
+                        showlegend=False,
                     ),
-                    row=row_idx, col=col_idx
+                    row=row_idx,
+                    col=col_idx,
                 )
                 # Hide axes for text panel
                 fig.update_xaxes(showgrid=False, zeroline=False, showticklabels=False, row=row_idx, col=col_idx)
                 fig.update_yaxes(showgrid=False, zeroline=False, showticklabels=False, row=row_idx, col=col_idx)
 
     fig.update_layout(
-        height=200*n, width=200*n,
-        title_text=main,
-        template="plotly_white",
-        margin=dict(l=50, r=50, t=80, b=50)
+        height=200 * n, width=200 * n, title_text=main, template="plotly_white", margin=dict(l=50, r=50, t=80, b=50)
     )
-    
+
     return fig
 
+
 def chart_rolling_correlation(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     width: int = 12,
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Chart of rolling correlation between two assets or sets of assets.
     """
-    if isinstance(Ra, pd.Series): Ra = Ra.to_frame()
-    if isinstance(Rb, pd.Series): Rb = Rb.to_frame()
-    
+    if isinstance(Ra, pd.Series):
+        Ra = Ra.to_frame()
+    if isinstance(Rb, pd.Series):
+        Rb = Rb.to_frame()
+
     fig = go.Figure()
-    
+
     # We calculate pairwise rolling correlation
     for i, col_a in enumerate(Ra.columns):
         for j, col_b in enumerate(Rb.columns):
             # Align
             merged = pd.concat([Ra[col_a], Rb[col_b]], axis=1).dropna()
-            if len(merged) < width: continue
-            
+            if len(merged) < width:
+                continue
+
             # Rolling correlation
             roll_corr = merged.iloc[:, 0].rolling(window=width).corr(merged.iloc[:, 1])
-            
+
             name = f"{col_a} vs {col_b}"
-            color = colorset[(i+j) % len(colorset)] if colorset else None
-            
-            fig.add_trace(go.Scatter(
-                x=roll_corr.index,
-                y=roll_corr.values,
-                mode='lines',
-                name=name,
-                line=dict(color=color)
-            ))
-            
+            color = colorset[(i + j) % len(colorset)] if colorset else None
+
+            fig.add_trace(
+                go.Scatter(x=roll_corr.index, y=roll_corr.values, mode="lines", name=name, line=dict(color=color))
+            )
+
     fig.update_layout(
         title=main or f"Rolling {width}-period Correlation",
         xaxis_title="Date",
         yaxis_title="Correlation",
         yaxis_range=[-1.1, 1.1],
-        template="plotly_white"
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_risk_return_scatter(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     Rf: float = 0.0,
-    scale: Optional[int] = None,
+    scale: int | None = None,
     geometric: bool = True,
-    add_sharpe: List[float] = [1, 2, 3],
+    add_sharpe: list[float] | None = None,
     main: str = "Annualized Return and Risk",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a risk-return scatter plot matching PerformanceAnalytics style.
     """
+    if add_sharpe is None:
+        add_sharpe = [1, 2, 3]
+
     from pyperfanalytics.returns import return_annualized, std_dev_annualized
     from pyperfanalytics.utils import _get_scale
-    
+
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     ann_ret = return_annualized(R, scale=scale, geometric=geometric)
     ann_std = std_dev_annualized(R, scale=scale)
-    
+
+    # Ensure ann_ret and ann_std are Series for consistent property access in type checking
+    if not isinstance(ann_ret, (pd.Series, pd.DataFrame)):
+        ann_ret = pd.Series([ann_ret], index=R.columns)
+    if not isinstance(ann_std, (pd.Series, pd.DataFrame)):
+        ann_std = pd.Series([ann_std], index=R.columns)
+
     fig = go.Figure()
-    
+
     # 1. Calculate annualized Rf for intercept
     # R's table.AnnualizedReturns uses (1+Rf)^scale - 1 if geometric
     if geometric:
         rf_ann = (1 + Rf) ** scale - 1
     else:
         rf_ann = Rf * scale
-    
+
     # 2. Set limits with 0.02 padding like R
     max_risk = ann_std.max() + 0.02
     min_ret = min(0, ann_ret.min())
     max_ret = ann_ret.max() + 0.02
-    
+
     # 3. Add Sharpe ratio lines: y = rf_ann + SR * x
     x_range = np.linspace(0, max_risk, 100)
     for sr in add_sharpe:
         y_range = rf_ann + sr * x_range
-        fig.add_trace(go.Scatter(
-            x=x_range, y=y_range,
-            mode='lines',
-            name=f"SR={sr}",
-            line=dict(color='lightgray', width=1, dash='dash'),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=y_range,
+                mode="lines",
+                name=f"SR={sr}",
+                line=dict(color="lightgray", width=1, dash="dash"),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
 
     # 4. Add Assets
     # Use a color sequence for markers
-    asset_colors = colorset if colorset else [
-        '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', 
-        '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'
-    ]
-    
-    fig.add_trace(go.Scatter(
-        x=ann_std.values,
-        y=ann_ret.values,
-        mode='markers+text',
-        text=ann_ret.index,
-        textposition="top right",
-        marker=dict(
-            size=12,
-            color=[asset_colors[i % len(asset_colors)] for i in range(len(ann_ret))],
-            line=dict(width=1, color='white'),
-            opacity=0.8
-        ),
-        name="Assets",
-        hovertext=[f"{name}<br>Return: {r:.4f}<br>Risk: {s:.4f}" for name, r, s in zip(ann_ret.index, ann_ret.values, ann_std.values)],
-        hoverinfo="text"
-    ))
-    
+    asset_colors = (
+        colorset
+        if colorset
+        else [
+            "#636EFA",
+            "#EF553B",
+            "#00CC96",
+            "#AB63FA",
+            "#FFA15A",
+            "#19D3F3",
+            "#FF6692",
+            "#B6E880",
+            "#FF97FF",
+            "#FECB52",
+        ]
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=ann_std.values,
+            y=ann_ret.values,
+            mode="markers+text",
+            text=ann_ret.index,
+            textposition="top right",
+            marker=dict(
+                size=12,
+                color=[asset_colors[i % len(asset_colors)] for i in range(len(ann_ret))],
+                line=dict(width=1, color="white"),
+                opacity=0.8,
+            ),
+            name="Assets",
+            hovertext=[
+                f"{name}<br>Return: {r:.4f}<br>Risk: {s:.4f}"
+                for name, r, s in zip(ann_ret.index, ann_ret.values, ann_std.values, strict=False)
+            ],
+            hoverinfo="text",
+        )
+    )
+
     # 5. Update Layout to match R style
     fig.update_layout(
         title=main,
         xaxis_title="Annualized Risk (StdDev)",
         yaxis_title="Annualized Return",
         xaxis=dict(
-            range=[0, max_risk], 
-            zeroline=True, 
-            zerolinecolor='black',
-            gridcolor='lightgray',
+            range=[0, max_risk],
+            zeroline=True,
+            zerolinecolor="black",
+            gridcolor="lightgray",
             mirror=True,
             showline=True,
-            linecolor='black'
+            linecolor="black",
         ),
         yaxis=dict(
-            range=[min_ret, max_ret], 
-            zeroline=True, 
-            zerolinecolor='black',
-            gridcolor='lightgray',
+            range=[min_ret, max_ret],
+            zeroline=True,
+            zerolinecolor="black",
+            gridcolor="lightgray",
             mirror=True,
             showline=True,
-            linecolor='black'
+            linecolor="black",
         ),
-        width=800, height=800, # Square plot
-        template="plotly_white"
+        width=800,
+        height=800,  # Square plot
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_relative_performance(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     main: str = "Relative Performance",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Plots a time series chart that shows the ratio of the cumulative performance
     for two assets at each point in time.
     Ratio = cumprod(1+Ra) / cumprod(1+Rb)
     """
-    if isinstance(Ra, pd.Series): Ra = Ra.to_frame()
-    if isinstance(Rb, pd.Series): Rb = Rb.to_frame()
-    
+    if isinstance(Ra, pd.Series):
+        Ra = Ra.to_frame()
+    if isinstance(Rb, pd.Series):
+        Rb = Rb.to_frame()
+
     fig = go.Figure()
-    
+
     # Pairwise comparison as in R
     color_idx = 0
     for col_a in Ra.columns:
         for col_b in Rb.columns:
             # Align
             merged = pd.concat([Ra[col_a], Rb[col_b]], axis=1).dropna()
-            if merged.empty: continue
-            
+            if merged.empty:
+                continue
+
             # Cumulative returns (Geometric)
             cum_a = (1 + merged.iloc[:, 0]).cumprod()
             cum_b = (1 + merged.iloc[:, 1]).cumprod()
-            
+
             ratio = cum_a / cum_b
-            
+
             name = f"{col_a} / {col_b}"
             color = colorset[color_idx % len(colorset)] if colorset else None
             color_idx += 1
-            
-            fig.add_trace(go.Scatter(
-                x=ratio.index, y=ratio.values,
-                mode='lines', name=name,
-                line=dict(color=color)
-            ))
-            
+
+            fig.add_trace(go.Scatter(x=ratio.index, y=ratio.values, mode="lines", name=name, line=dict(color=color)))
+
     # Add horizontal line at 1.0 (benchmark)
     fig.add_hline(y=1.0, line_dash="solid", line_color="darkgray")
-    
+
     fig.update_layout(
-        title=main,
-        xaxis_title="Date",
-        yaxis_title="Relative Performance (Ratio)",
-        template="plotly_white"
+        title=main, xaxis_title="Date", yaxis_title="Relative Performance (Ratio)", template="plotly_white"
     )
-    
+
     return fig
 
+
 def chart_capture_ratios(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     main: str = "Capture Ratio",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Scatter plot of Up Capture versus Down Capture against a benchmark.
     X-axis: Downside Capture
     Y-axis: Upside Capture
     """
-    from pyperfanalytics.returns import up_capture, down_capture
-    
-    if isinstance(Ra, pd.Series): Ra = Ra.to_frame()
-    if isinstance(Rb, pd.Series): Rb = Rb.to_frame()
-    
+    from pyperfanalytics.returns import down_capture, up_capture
+
+    if isinstance(Ra, pd.Series):
+        Ra = Ra.to_frame()
+    if isinstance(Rb, pd.Series):
+        Rb = Rb.to_frame()
+
     # We only support one benchmark for this chart generally
     benchmark_name = Rb.columns[0]
     rb_series = Rb.iloc[:, 0]
-    
+
     up_caps = []
     down_caps = []
     names = []
-    
+
     for col in Ra.columns:
         up_caps.append(up_capture(Ra[col], rb_series))
         down_caps.append(down_capture(Ra[col], rb_series))
         names.append(col)
-        
+
+    # Set the charts to show the origin and the benchmark point (1,1)
+    # PerformanceAnalytics logic:
+    # xlim = c(min(0.75, downside - 0.2), max(1.25, downside + 0.2))
+    # ylim = c(min(0.75, upside - 0.2), max(1.25, upside + 0.2))
+    xmin = min(0.75, min(down_caps) - 0.2)
+    xmax = max(1.25, max(down_caps) + 0.2)
+    ymin = min(0.75, min(up_caps) - 0.2)
+    ymax = max(1.25, max(up_caps) + 0.2)
+
     fig = go.Figure()
-    
+
     # Add diagonal line y=x
-    limit = max(max(up_caps), max(down_caps), 1.25) + 0.1
-    fig.add_trace(go.Scatter(
-        x=[0, limit], y=[0, limit],
-        mode='lines', line=dict(color='lightgray', dash='dash'),
-        name='y=x', showlegend=False, hoverinfo='skip'
-    ))
-    
+    limit = max(xmax, ymax)
+    fig.add_trace(
+        go.Scatter(
+            x=[0, limit],
+            y=[0, limit],
+            mode="lines",
+            line=dict(color="darkgray", dash="dash", width=1),
+            name="y=x",
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
     # Add crosshairs for benchmark at (1,1)
-    fig.add_hline(y=1.0, line_color='gray', line_width=1)
-    fig.add_vline(x=1.0, line_color='gray', line_width=1)
-    
+    fig.add_hline(y=1.0, line_color="darkgray", line_width=1)
+    fig.add_vline(x=1.0, line_color="darkgray", line_width=1)
+
     # Add benchmark point
-    fig.add_trace(go.Scatter(
-        x=[1.0], y=[1.0], mode='markers+text',
-        text=[benchmark_name], textposition="bottom center",
-        marker=dict(size=12, color='black'),
-        name=benchmark_name
-    ))
-    
+    fig.add_trace(
+        go.Scatter(
+            x=[1.0],
+            y=[1.0],
+            mode="markers+text",
+            text=[benchmark_name],
+            textposition="bottom right",
+            marker=dict(size=12, color="black"),
+            name=benchmark_name,
+            showlegend=False,
+        )
+    )
+
     # Add Asset points
-    asset_colors = colorset if colorset else [
-        '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A'
-    ]
-    
-    fig.add_trace(go.Scatter(
-        x=down_caps, y=up_caps,
-        mode='markers+text',
-        text=names, textposition="top center",
-        marker=dict(
-            size=10, 
-            color=[asset_colors[i % len(asset_colors)] for i in range(len(names))],
-            line=dict(width=1, color='white')
-        ),
-        name="Assets",
-        hovertext=[f"{n}<br>Up Capture: {u:.2%}<br>Down Capture: {d:.2%}" for n, u, d in zip(names, up_caps, down_caps)],
-        hoverinfo="text"
-    ))
-    
+    asset_colors = colorset if colorset else ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]
+
+    fig.add_trace(
+        go.Scatter(
+            x=down_caps,
+            y=up_caps,
+            mode="markers+text",
+            text=names,
+            textposition="top right",
+            marker=dict(
+                size=10,
+                color=[asset_colors[i % len(asset_colors)] for i in range(len(names))],
+                line=dict(width=1, color="white"),
+            ),
+            name="Assets",
+            hovertext=[
+                f"{n}<br>Up Capture: {u:.2%}<br>Down Capture: {d:.2%}"
+                for n, u, d in zip(names, up_caps, down_caps, strict=False)
+            ],
+            hoverinfo="text",
+        )
+    )
+
     fig.update_layout(
         title=main,
         xaxis_title="Downside Capture",
         yaxis_title="Upside Capture",
-        xaxis=dict(range=[max(0, min(down_caps)-0.2), limit], zeroline=True),
-        yaxis=dict(range=[max(0, min(up_caps)-0.2), limit], zeroline=True),
-        width=700, height=700,
-        template="plotly_white"
+        xaxis=dict(range=[xmin, xmax], zeroline=True, zerolinecolor="black", gridcolor="lightgray"),
+        yaxis=dict(range=[ymin, ymax], zeroline=True, zerolinecolor="black", gridcolor="lightgray"),
+        width=800,
+        height=800,
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_rolling_regression(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     width: int = 12,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
     attribute: str = "Beta",
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Chart of rolling regression performance (Alpha, Beta, or R-Squared).
     """
-    from pyperfanalytics.returns import return_excess
     from scipy import stats
-    
-    if isinstance(Ra, pd.Series): Ra = Ra.to_frame()
-    if isinstance(Rb, pd.Series): Rb = Rb.to_frame()
-    
+
+    from pyperfanalytics.returns import return_excess
+
+    if isinstance(Ra, pd.Series):
+        Ra = Ra.to_frame()
+    if isinstance(Rb, pd.Series):
+        Rb = Rb.to_frame()
+
     # Calculate excess returns
     xRa = return_excess(Ra, Rf)
     xRb = return_excess(Rb, Rf)
-    
+
     fig = go.Figure()
-    
+
     color_idx = 0
     for col_a in xRa.columns:
         for col_b in xRb.columns:
             # Align
             merged = pd.concat([xRa[col_a], xRb[col_b]], axis=1).dropna()
-            if len(merged) < width: continue
-            
+            if len(merged) < width:
+                continue
+
             vals = []
             for i in range(len(merged)):
                 if i < width - 1:
                     vals.append(np.nan)
                 else:
-                    window = merged.iloc[i-width+1:i+1]
+                    window = merged.iloc[i - width + 1 : i + 1]
                     # Regression y ~ x
                     slope, intercept, r_value, p_value, std_err = stats.linregress(window.iloc[:, 1], window.iloc[:, 0])
-                    
+
                     if attribute == "Alpha":
                         vals.append(intercept)
                     elif attribute == "Beta":
@@ -1118,193 +1232,174 @@ def chart_rolling_regression(
                         vals.append(r_value**2)
                     else:
                         raise ValueError(f"Unknown attribute: {attribute}")
-            
+
             res_series = pd.Series(vals, index=merged.index)
             name = f"{col_a} to {col_b}"
             color = colorset[color_idx % len(colorset)] if colorset else None
             color_idx += 1
-            
-            fig.add_trace(go.Scatter(
-                x=res_series.index, y=res_series.values,
-                mode='lines', name=name,
-                line=dict(color=color)
-            ))
-            
+
+            fig.add_trace(
+                go.Scatter(x=res_series.index, y=res_series.values, mode="lines", name=name, line=dict(color=color))
+            )
+
     fig.update_layout(
         title=main or f"Rolling {width}-period {attribute}",
         xaxis_title="Date",
         yaxis_title=attribute,
-        template="plotly_white"
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def charts_rolling_regression(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     width: int = 12,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
     main: str = "Rolling Regression Summary",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Dashboard with Alpha, Beta, and R-Squared rolling regression charts.
     """
     fig = make_subplots(
-        rows=3, cols=1,
+        rows=3,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
-        subplot_titles=("Rolling Alpha", "Rolling Beta", "Rolling R-Squared")
+        subplot_titles=("Rolling Alpha", "Rolling Beta", "Rolling R-Squared"),
     )
-    
+
     # 1. Alpha
     f_alpha = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="Alpha", colorset=colorset)
     for trace in f_alpha.data:
         fig.add_trace(trace, row=1, col=1)
-        
+
     # 2. Beta
     f_beta = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="Beta", colorset=colorset)
     for trace in f_beta.data:
-        trace.showlegend = False # Only show legend once
+        trace.showlegend = False  # Only show legend once
         fig.add_trace(trace, row=2, col=1)
-        
+
     # 3. R-Squared
     f_r2 = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="R-Squared", colorset=colorset)
     for trace in f_r2.data:
         trace.showlegend = False
         fig.add_trace(trace, row=3, col=1)
-        
-    fig.update_layout(
-        height=900,
-        title_text=main,
-        template="plotly_white",
-        hovermode="x unified"
-    )
-    
+
+    fig.update_layout(height=900, title_text=main, template="plotly_white", hovermode="x unified")
+
     # Update y-axis titles for each subplot
-    fig.update_yaxes(title_text="Alpha", zeroline=True, zerolinecolor='black', row=1, col=1)
-    fig.update_yaxes(title_text="Beta", zeroline=True, zerolinecolor='black', row=2, col=1)
+    fig.update_yaxes(title_text="Alpha", zeroline=True, zerolinecolor="black", row=1, col=1)
+    fig.update_yaxes(title_text="Beta", zeroline=True, zerolinecolor="black", row=2, col=1)
     fig.update_yaxes(title_text="R-Squared", row=3, col=1)
-    
+
     return fig
 
-def chart_acf(
-    R: Union[pd.Series, pd.DataFrame],
-    maxlag: Optional[int] = None,
-    main: Optional[str] = None,
-    **kwargs
-) -> go.Figure:
+
+def chart_acf(R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str | None = None, **kwargs) -> go.Figure:
     """
     Create an Autocorrelation Function (ACF) chart.
     """
     from statsmodels.tsa.stattools import acf
-    
+
     if isinstance(R, pd.DataFrame):
         series = R.iloc[:, 0].dropna()
     else:
         series = R.dropna()
-        
+
     num = len(series)
     if maxlag is None:
         maxlag = int(np.ceil(10 + np.sqrt(num)))
-        
+
     # Calculate ACF, excluding lag 0 as in R's chart.ACFplus
     acf_vals = acf(series, nlags=maxlag, fft=True)[1:]
     lags = np.arange(1, len(acf_vals) + 1)
-    
+
     # Confidence intervals +/- 2/sqrt(n)
     ci = 2.0 / np.sqrt(num)
-    
+
     fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        x=lags, y=acf_vals,
-        name="ACF",
-        marker_color="lightgray"
-    ))
-    
+
+    fig.add_trace(go.Bar(x=lags, y=acf_vals, name="ACF", marker_color="lightgray"))
+
     # Add CI lines
     fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5)
     fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5)
     fig.add_hline(y=0, line_color="black")
-    
+
     fig.update_layout(
         title=main or f"Autocorrelation of {series.name if hasattr(series, 'name') else 'Returns'}",
         xaxis_title="Lag",
         yaxis_title="ACF",
-        template="plotly_white"
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_acf_plus(
-    R: Union[pd.Series, pd.DataFrame],
-    maxlag: Optional[int] = None,
-    main: Optional[str] = None,
-    **kwargs
+    R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str | None = None, **kwargs
 ) -> go.Figure:
     """
     Create a chart with both ACF and PACF subplots.
     """
     from statsmodels.tsa.stattools import acf, pacf
-    
+
     if isinstance(R, pd.DataFrame):
         series = R.iloc[:, 0].dropna()
     else:
         series = R.dropna()
-        
+
     num = len(series)
     if maxlag is None:
         maxlag = int(np.ceil(10 + np.sqrt(num)))
-        
+
     acf_vals = acf(series, nlags=maxlag, fft=True)[1:]
     pacf_vals = pacf(series, nlags=maxlag)[1:]
     lags = np.arange(1, len(acf_vals) + 1)
-    
+
     ci = 2.0 / np.sqrt(num)
-    
+
     fig = make_subplots(
-        rows=2, cols=1,
+        rows=2,
+        cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
-        subplot_titles=("Autocorrelation (ACF)", "Partial Autocorrelation (PACF)")
+        subplot_titles=("Autocorrelation (ACF)", "Partial Autocorrelation (PACF)"),
     )
-    
+
     # ACF
-    fig.add_trace(
-        go.Bar(x=lags, y=acf_vals, name="ACF", marker_color="lightgray", showlegend=False),
-        row=1, col=1
-    )
-    
+    fig.add_trace(go.Bar(x=lags, y=acf_vals, name="ACF", marker_color="lightgray", showlegend=False), row=1, col=1)
+
     # PACF
-    fig.add_trace(
-        go.Bar(x=lags, y=pacf_vals, name="PACF", marker_color="lightgray", showlegend=False),
-        row=2, col=1
-    )
-    
+    fig.add_trace(go.Bar(x=lags, y=pacf_vals, name="PACF", marker_color="lightgray", showlegend=False), row=2, col=1)
+
     # Add CI lines to both
     for r in [1, 2]:
         fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
         fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
         fig.add_hline(y=0, line_color="black", row=r, col=1)
-        
+
     fig.update_layout(
         height=700,
         title_text=main or f"Time Series Diagnostics: {series.name if hasattr(series, 'name') else ''}",
-        template="plotly_white"
+        template="plotly_white",
     )
-    
+
     return fig
 
+
 def chart_events(
-    R: Union[pd.Series, pd.DataFrame],
-    dates: List[Union[str, pd.Timestamp]],
+    R: pd.Series | pd.DataFrame,
+    dates: list[str | pd.Timestamp],
     prior: int = 12,
     post: int = 12,
-    main: Optional[str] = None,
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    main: str | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Plots a time series with event dates aligned.
@@ -1312,29 +1407,29 @@ def chart_events(
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     series = R.iloc[:, 0]
-    
+
     fig = go.Figure()
-    
+
     # Relative index
     rel_index = np.arange(-prior, post + 1)
-    
+
     for i, date in enumerate(dates):
         # Find index of date
         try:
             # Flexible date matching
             dt = pd.to_datetime(date)
             # Find closest index or exact match
-            origin_idx = series.index.get_indexer([dt], method='nearest')[0]
+            origin_idx = series.index.get_indexer([dt], method="nearest")[0]
         except Exception:
             print(f"Warning: Could not find date {date} in index.")
             continue
-            
+
         # Extract window
         start = origin_idx - prior
         end = origin_idx + post + 1
-        
+
         # Slice and pad if necessary
         window_data = []
         for j in range(start, end):
@@ -1342,56 +1437,63 @@ def chart_events(
                 window_data.append(np.nan)
             else:
                 window_data.append(series.iloc[j])
-                
+
         color = colorset[i % len(colorset)] if colorset else None
-        
-        fig.add_trace(go.Scatter(
-            x=rel_index, y=window_data,
-            mode='lines+markers',
-            name=str(date),
-            line=dict(color=color),
-            marker=dict(size=4)
-        ))
-        
+
+        fig.add_trace(
+            go.Scatter(
+                x=rel_index,
+                y=window_data,
+                mode="lines+markers",
+                name=str(date),
+                line=dict(color=color),
+                marker=dict(size=4),
+            )
+        )
+
     # Add vertical line at event point (0)
     fig.add_vline(x=0, line_dash="dash", line_color="black")
-    
+
     fig.update_layout(
         title=main or f"Event Study: {series.name}",
         xaxis_title="Periods to Event",
         yaxis_title="Value",
         template="plotly_white",
-        xaxis=dict(tickmode='linear', tick0=-prior, dtick=max(1, (prior+post)//10))
+        xaxis=dict(tickmode="linear", tick0=-prior, dtick=max(1, (prior + post) // 10)),
     )
-    
+
     return fig
 
+
 def chart_snail_trail(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     Rf: float = 0.0,
     width: int = 12,
     stepsize: int = 12,
-    scale: Optional[int] = None,
+    scale: int | None = None,
     geometric: bool = True,
     main: str = "Annualized Return and Risk Trail",
-    add_sharpe: List[float] = [1, 2, 3],
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    add_sharpe: list[float] | None = None,
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create a snail trail chart showing rolling risk-return evolution.
     """
+    if add_sharpe is None:
+        add_sharpe = [1, 2, 3]
+
     from pyperfanalytics.returns import return_annualized, std_dev_annualized
     from pyperfanalytics.utils import _get_scale
-    
+
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     if scale is None:
         scale = _get_scale(R)
-        
+
     fig = go.Figure()
-    
+
     # Standard colors for Sharpe lines
     if geometric:
         rf_ann = (1 + Rf) ** scale - 1
@@ -1405,241 +1507,250 @@ def chart_snail_trail(
         dates = []
         rets = []
         stds = []
-        
+
         # PerformanceAnalytics logic: (nrow(y)%%stepsize+1):nrow(y)
         start_idx = len(series) % stepsize
         for i in range(start_idx + width, len(series) + 1, stepsize):
-            window = series.iloc[i-width:i]
-            
+            window = series.iloc[i - width : i]
+
             # Extract scalar values safely
             ret_val = return_annualized(window, scale=scale, geometric=geometric)
-            if hasattr(ret_val, "iloc"): ret_val = ret_val.iloc[0]
-            elif isinstance(ret_val, pd.Series): ret_val = ret_val.values[0]
-            
+            if isinstance(ret_val, (pd.Series, pd.DataFrame)):
+                ret_val = ret_val.iloc[0]
+
             std_val = std_dev_annualized(window, scale=scale)
-            if hasattr(std_val, "iloc"): std_val = std_val.iloc[0]
-            elif isinstance(std_val, pd.Series): std_val = std_val.values[0]
-            
+            if isinstance(std_val, (pd.Series, pd.DataFrame)):
+                std_val = std_val.iloc[0]
+
             rets.append(ret_val)
             stds.append(std_val)
-            dates.append(series.index[i-1])
-            
-        all_trace_data.append({
-            'name': col,
-            'rets': rets,
-            'stds': stds,
-            'dates': [d.strftime('%Y-%m') for d in dates]
-        })
+            dates.append(series.index[i - 1])
+
+        all_trace_data.append({"name": col, "rets": rets, "stds": stds, "dates": [d.strftime("%Y-%m") for d in dates]})
 
     # Global limits for Sharpe lines
-    max_std = max([max(d['stds']) for d in all_trace_data]) if all_trace_data else 0.1
+    max_std = max([max(d["stds"]) for d in all_trace_data]) if all_trace_data else 0.1
     max_std = max_std * 1.2
     x_range = np.linspace(0, max_std, 100)
     for sr in add_sharpe:
-        fig.add_trace(go.Scatter(
-            x=x_range, y=rf_ann + sr * x_range,
-            mode='lines', line=dict(color='lightgray', width=1, dash='dash'),
-            showlegend=False, hoverinfo='skip'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_range,
+                y=rf_ann + sr * x_range,
+                mode="lines",
+                line=dict(color="lightgray", width=1, dash="dash"),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
 
     # Add Trails
-    asset_colors = colorset if colorset else [
-        '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A'
-    ]
-    
+    asset_colors = colorset if colorset else ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]
+
     for i, data_dict in enumerate(all_trace_data):
         color = asset_colors[i % len(asset_colors)]
-        
-        # To create a "trail" effect (fading), we can't easily do it with one trace in Plotly 
-        # unless we use multiple segments or a color array. 
+
+        # To create a "trail" effect (fading), we can't easily do it with one trace in Plotly
+        # unless we use multiple segments or a color array.
         # Simple version: one line with markers
-        fig.add_trace(go.Scatter(
-            x=data_dict['stds'], y=data_dict['rets'],
-            mode='lines+markers',
-            name=data_dict['name'],
-            text=data_dict['dates'],
-            line=dict(color=color, width=2),
-            marker=dict(
-                size=8, 
-                color=np.arange(len(data_dict['rets'])), # Gradient over time
-                colorscale=[[0, 'white'], [1, color]],
-                showscale=False
-            ),
-            hovertemplate="<b>%{name}</b><br>Date: %{text}<br>Ann. Return: %{y:.4f}<br>Ann. StdDev: %{x:.4f}<extra></extra>"
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=data_dict["stds"],
+                y=data_dict["rets"],
+                mode="lines+markers",
+                name=data_dict["name"],
+                text=data_dict["dates"],
+                line=dict(color=color, width=2),
+                marker=dict(
+                    size=8,
+                    color=np.arange(len(data_dict["rets"])),  # Gradient over time
+                    colorscale=[[0, "white"], [1, color]],
+                    showscale=False,
+                ),
+                hovertemplate=(
+                    "<b>%{name}</b><br>Date: %{text}<br>"
+                    "Ann. Return: %{y:.4f}<br>Ann. StdDev: %{x:.4f}<extra></extra>"
+                ),
+            )
+        )
 
     fig.update_layout(
         title=main,
         xaxis_title="Annualized Standard Deviation",
         yaxis_title="Annualized Return",
         template="plotly_white",
-        width=800, height=800
+        width=800,
+        height=800,
     )
-    
+
     return fig
 
+
 def chart_stacked_bar(
-    w: Union[pd.Series, pd.DataFrame],
-    main: str = "Stacked Bar Chart",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    w: pd.Series | pd.DataFrame, main: str = "Stacked Bar Chart", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
     """
     Create a stacked bar plot (commonly for weights or contributions).
     """
     if isinstance(w, pd.Series):
         w = w.to_frame()
-        
+
     fig = go.Figure()
-    
+
     for i, col in enumerate(w.columns):
         color = colorset[i % len(colorset)] if colorset else None
-        fig.add_trace(go.Bar(
-            x=w.index, y=w[col],
-            name=col,
-            marker_color=color
-        ))
-        
+        fig.add_trace(go.Bar(x=w.index, y=w[col], name=col, marker_color=color))
+
     fig.update_layout(
         title=main,
         xaxis_title="Date",
         yaxis_title="Value",
-        barmode='relative', # Essential for positive/negative stacking
+        barmode="relative",  # Essential for positive/negative stacking
         template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
-    
+
     return fig
 
+
 def chart_component_returns(
-    R: Union[pd.Series, pd.DataFrame],
-    weights: Optional[Union[List[float], np.array, pd.Series]] = None,
+    R: pd.Series | pd.DataFrame,
+    weights: list[float] | np.ndarray | pd.Series | None = None,
     main: str = "Component Returns Contribution",
-    **kwargs
+    **kwargs,
 ) -> go.Figure:
     """
     Plots the contribution of each asset to the portfolio return.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
-        
+
     if weights is None:
         weights = np.ones(R.shape[1]) / R.shape[1]
-        
+
     # Contribution = Return * Weight
     contrib = R.multiply(weights, axis=1)
-    
+
     return chart_stacked_bar(contrib, main=main, **kwargs)
 
+
 def chart_ecdf(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     main: str = "Empirical Cumulative Distribution Function",
     xlab: str = "Returns",
     ylab: str = "Cumulative Probability",
-    colorset: Optional[List[str]] = None,
-    **kwargs
+    colorset: list[str] | None = None,
+    **kwargs,
 ) -> go.Figure:
     """
     Create an aesthetically enhanced ECDF chart overlaid with a normal CDF.
     """
     from scipy.stats import norm
-    
+
     if isinstance(R, pd.DataFrame):
         series = R.iloc[:, 0].dropna()
     else:
         series = R.dropna()
-        
+
     sorted_data = np.sort(series)
     y_ecdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
-    
+
     fig = go.Figure()
-    
+
     # Coordinated colors
-    c_ecdf = colorset[0] if colorset else '#636EFA' # Modern Blue
-    c_norm = colorset[1] if colorset and len(colorset) > 1 else '#EF553B' # Muted Red
-    
+    c_ecdf = colorset[0] if colorset else "#636EFA"  # Modern Blue
+    c_norm = colorset[1] if colorset and len(colorset) > 1 else "#EF553B"  # Muted Red
+
     # Normal CDF Background Line (Reference)
     mu, std = series.mean(), series.std(ddof=1)
-    x_range = np.linspace(sorted_data[0] - abs(sorted_data[0])*0.1, 
-                          sorted_data[-1] + abs(sorted_data[-1])*0.1, 300)
+    x_range = np.linspace(sorted_data[0] - abs(sorted_data[0]) * 0.1, sorted_data[-1] + abs(sorted_data[-1]) * 0.1, 300)
     y_normal = norm.cdf(x_range, mu, std)
-    
-    fig.add_trace(go.Scatter(
-        x=x_range, y=y_normal,
-        mode='lines',
-        name='Normal Distribution',
-        line=dict(color=c_norm, width=2, dash='dot'),
-        opacity=0.8
-    ))
-    
+
+    fig.add_trace(
+        go.Scatter(
+            x=x_range,
+            y=y_normal,
+            mode="lines",
+            name="Normal Distribution",
+            line=dict(color=c_norm, width=2, dash="dot"),
+            opacity=0.8,
+        )
+    )
+
     # ECDF Step Trace with Area Fill
-    fig.add_trace(go.Scatter(
-        x=sorted_data, y=y_ecdf,
-        mode='lines',
-        name='Empirical CDF',
-        line=dict(color=c_ecdf, shape='hv', width=3),
-        fill='tozeroy', # Subtle fill under the curve
-        fillcolor='rgba(99, 110, 250, 0.1)' 
-    ))
-    
+    fig.add_trace(
+        go.Scatter(
+            x=sorted_data,
+            y=y_ecdf,
+            mode="lines",
+            name="Empirical CDF",
+            line=dict(color=c_ecdf, shape="hv", width=3),
+            fill="tozeroy",  # Subtle fill under the curve
+            fillcolor="rgba(99, 110, 250, 0.1)",
+        )
+    )
+
     fig.update_layout(
         title=main,
         xaxis_title=xlab,
         yaxis_title=ylab,
         template="plotly_white",
-        yaxis=dict(range=[0, 1.05], tickformat='.0%', gridcolor='lightgray'),
-        xaxis=dict(gridcolor='lightgray', zeroline=True, zerolinecolor='black'),
+        yaxis=dict(range=[0, 1.05], tickformat=".0%", gridcolor="lightgray"),
+        xaxis=dict(gridcolor="lightgray", zeroline=True, zerolinecolor="black"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        hovermode="x"
+        hovermode="x",
     )
-    
+
     return fig
 
+
 def chart_scatter(
-    x: Union[pd.Series, pd.DataFrame],
-    y: Union[pd.Series, pd.DataFrame],
+    x: pd.Series | pd.DataFrame,
+    y: pd.Series | pd.DataFrame,
     main: str = "Scatter Plot",
-    xlab: Optional[str] = None,
-    ylab: Optional[str] = None,
-    marginal: str = "rug", # 'histogram', 'rug', 'box', 'violin'
+    xlab: str | None = None,
+    ylab: str | None = None,
+    marginal: str = "rug",  # 'histogram', 'rug', 'box', 'violin'
     add_regression: bool = True,
-    **kwargs
+    **kwargs,
 ) -> go.Figure:
     """
     Create a scatter plot with optional marginal distributions and regression line.
     """
     import plotly.express as px
-    
+
     if isinstance(x, pd.DataFrame):
         x_name = x.columns[0]
         x_series = x.iloc[:, 0]
     else:
-        x_name = x.name if hasattr(x, 'name') else 'x'
+        x_name = x.name if hasattr(x, "name") else "x"
         x_series = x
-        
+
     if isinstance(y, pd.DataFrame):
         y_name = y.columns[0]
         y_series = y.iloc[:, 0]
     else:
-        y_name = y.name if hasattr(y, 'name') else 'y'
+        y_name = y.name if hasattr(y, "name") else "y"
         y_series = y
-        
+
     # Align data
     df_plot = pd.concat([x_series, y_series], axis=1).dropna()
     df_plot.columns = [x_name, y_name]
-    
+
     fig = px.scatter(
-        df_plot, x=x_name, y=y_name,
+        df_plot,
+        x=x_name,
+        y=y_name,
         marginal_x=marginal,
         marginal_y=marginal,
         trendline="ols" if add_regression else None,
         template="plotly_white",
         title=main,
-        labels={x_name: xlab or x_name, y_name: ylab or y_name}
+        labels={x_name: xlab or x_name, y_name: ylab or y_name},
     )
-    
+
     # Styling regression line if present
     if add_regression:
         fig.update_traces(line=dict(color="red", width=1), selector=dict(mode="lines"))
-        
+
     return fig

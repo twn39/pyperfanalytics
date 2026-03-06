@@ -1,10 +1,8 @@
-from typing import Dict, Union
-
 import numpy as np
 import pandas as pd
 
 
-def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[pd.Series, pd.DataFrame]:
+def drawdowns(R: pd.Series | pd.DataFrame, geometric: bool = True) -> pd.Series | pd.DataFrame:
     r"""
     Calculate the drawdown levels in a timeseries.
 
@@ -29,6 +27,7 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
     pd.Series or pd.DataFrame
         A timeseries of drawdown percentages (<= 0), with the same shape as `R`.
     """
+
     def _calc(s: pd.Series, geom: bool) -> pd.Series:
         s = s.dropna()
         if geom:
@@ -49,7 +48,8 @@ def drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Unio
     else:
         return _calc(R, geometric)
 
-def max_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
+
+def max_drawdown(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
     r"""
     Calculate the maximum drawdown of a return series.
 
@@ -75,7 +75,8 @@ def max_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> U
     dd = drawdowns(R, geometric=geometric)
     return np.abs(dd.min())
 
-def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Dict[str, np.ndarray]:
+
+def find_drawdowns(R: pd.Series | pd.DataFrame, geometric: bool = True) -> dict[str, np.ndarray]:
     """
     Find drawdowns in a return series.
 
@@ -123,9 +124,13 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
 
     if n == 0:
         return {
-            "return": np.array([]), "from": np.array([]), "trough": np.array([]),
-            "to": np.array([]), "length": np.array([]), "peaktotrough": np.array([]),
-            "recovery": np.array([])
+            "return": np.array([]),
+            "from": np.array([]),
+            "trough": np.array([]),
+            "to": np.array([]),
+            "length": np.array([]),
+            "peaktotrough": np.array([]),
+            "recovery": np.array([]),
         }
 
     # Initialize like R's findDrawdowns.R
@@ -191,10 +196,11 @@ def find_drawdowns(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
         "to": end,
         "length": lengths,
         "peaktotrough": peaktotroughs,
-        "recovery": recoveries
+        "recovery": recoveries,
     }
 
-def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
+
+def average_drawdown(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
     r"""
     Calculate the average depth of the observed drawdowns.
 
@@ -214,6 +220,7 @@ def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
     float or pd.Series
         The average drawdown depth as a positive float.
     """
+
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
         returns = dd_info["return"]
@@ -227,7 +234,8 @@ def average_drawdown(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
     else:
         return _calc(R)
 
-def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
+
+def average_length(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
     r"""
     Calculate the average length (in periods) of the observed drawdowns.
 
@@ -248,6 +256,7 @@ def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
     float or pd.Series
         Average length of the drawdowns.
     """
+
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
         mask = dd_info["return"] < 0
@@ -261,7 +270,8 @@ def average_length(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) ->
     else:
         return _calc(R)
 
-def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
+
+def average_recovery(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
     r"""
     Calculate the average length (in periods) of the observed recovery period.
 
@@ -281,6 +291,7 @@ def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
     float or pd.Series
         Average recovery length.
     """
+
     def _calc(s: pd.Series) -> float:
         dd_info = find_drawdowns(s, geometric=geometric)
         mask = dd_info["return"] < 0
@@ -294,7 +305,8 @@ def average_recovery(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) 
     else:
         return _calc(R)
 
-def drawdown_deviation(R: Union[pd.Series, pd.DataFrame], geometric: bool = True) -> Union[float, pd.Series]:
+
+def drawdown_deviation(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
     r"""
     Calculate a standard deviation-type statistic using individual drawdowns.
 
@@ -317,6 +329,7 @@ def drawdown_deviation(R: Union[pd.Series, pd.DataFrame], geometric: bool = True
     float or pd.Series
         The drawdown deviation.
     """
+
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
         n = len(s)
@@ -334,7 +347,8 @@ def drawdown_deviation(R: Union[pd.Series, pd.DataFrame], geometric: bool = True
     else:
         return _calc(R)
 
-def sort_drawdowns(runs: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+
+def sort_drawdowns(runs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     """
     Sort drawdowns from worst to best.
     """
@@ -343,7 +357,8 @@ def sort_drawdowns(runs: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     idx = np.argsort(runs["return"])
     return {k: v[idx] for k, v in runs.items()}
 
-def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
+
+def drawdown_peak(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     """
     Replicate R's DrawdownPeak logic.
     This function assumes returns are in percent (multiplies/divides by 100).
@@ -352,6 +367,7 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
     Implementation is O(n) using a single forward pass to maintain the
     cumulative wealth index relative to the last new peak.
     """
+
     def _calc(s: pd.Series) -> pd.Series:
         s = s.dropna()
         n = len(s)
@@ -363,7 +379,7 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
         cum_wealth = 1.0  # wealth index since last peak reset
 
         for i in range(n):
-            cum_wealth *= (1.0 + s.iloc[i] / 100.0)
+            cum_wealth *= 1.0 + s.iloc[i] / 100.0
             if cum_wealth > 1.0:
                 # New high: reset and record 0 drawdown
                 cum_wealth = 1.0
@@ -378,12 +394,8 @@ def drawdown_peak(R: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.Data
     else:
         return _calc(R)
 
-def cdd(
-    R: Union[pd.Series, pd.DataFrame],
-    p: float = 0.95,
-    geometric: bool = True,
-    invert: bool = True
-) -> Union[float, pd.Series]:
+
+def cdd(R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, invert: bool = True) -> float | pd.Series:
     r"""
     Calculate Uryasev's proposed Conditional Drawdown at Risk (CDD or CDaR) measure.
 
@@ -409,6 +421,7 @@ def cdd(
     float or pd.Series
         The CDD risk value.
     """
+
     def _calc(s: pd.Series, prob: float) -> float:
         s = s.dropna()
         if len(s) == 0:

@@ -29,6 +29,7 @@ import pyperfanalytics as pa
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def edge_benchmarks():
     path = "data/edge_case_benchmarks.json"
@@ -48,24 +49,25 @@ def _make_series(vals, name="R"):
 # Shared data (scale=12 to match R monthly series)
 # ---------------------------------------------------------------------------
 
-ALL_POSITIVE    = [0.01, 0.02, 0.03, 0.02, 0.01, 0.02, 0.03, 0.01, 0.02, 0.02]
-ALL_NEGATIVE    = [-0.01, -0.02, -0.03, -0.02, -0.01, -0.02, -0.03, -0.01, -0.02, -0.02]
-STARTS_LOSS     = [-0.05, 0.03, 0.04, -0.02, 0.01, 0.06, -0.01, 0.02, 0.03, -0.01]
-CONSTANT_POS    = [0.01] * 12
-CONSTANT_NEG    = [-0.01] * 12
-TWO_OBS         = [0.05, -0.03]
-SINGLE_OBS      = [0.05]
-MIXED_ZEROS     = [0.0, 0.0, 0.01, -0.01, 0.0, 0.02, -0.02, 0.0, 0.01, 0.0]
-HIGH_VOL        = [0.15, -0.12, 0.20, -0.18, 0.10, -0.08, 0.25, -0.20, 0.12, -0.15]
-BENCH_PROXY     = [0.01, 0.015, 0.008, 0.012, 0.009, 0.011, 0.013, 0.007, 0.010, 0.012]
+ALL_POSITIVE = [0.01, 0.02, 0.03, 0.02, 0.01, 0.02, 0.03, 0.01, 0.02, 0.02]
+ALL_NEGATIVE = [-0.01, -0.02, -0.03, -0.02, -0.01, -0.02, -0.03, -0.01, -0.02, -0.02]
+STARTS_LOSS = [-0.05, 0.03, 0.04, -0.02, 0.01, 0.06, -0.01, 0.02, 0.03, -0.01]
+CONSTANT_POS = [0.01] * 12
+CONSTANT_NEG = [-0.01] * 12
+TWO_OBS = [0.05, -0.03]
+SINGLE_OBS = [0.05]
+MIXED_ZEROS = [0.0, 0.0, 0.01, -0.01, 0.0, 0.02, -0.02, 0.0, 0.01, 0.0]
+HIGH_VOL = [0.15, -0.12, 0.20, -0.18, 0.10, -0.08, 0.25, -0.20, 0.12, -0.15]
+BENCH_PROXY = [0.01, 0.015, 0.008, 0.012, 0.009, 0.011, 0.013, 0.007, 0.010, 0.012]
 
-TOL = 1e-3   # tolerance for edge cases; slightly wider than production tests
+TOL = 1e-3  # tolerance for edge cases; slightly wider than production tests
 
 
 # ---------------------------------------------------------------------------
 # 1. All-Positive returns
 #    Expected from R: no downside, zero max drawdown, Sortino = nan
 # ---------------------------------------------------------------------------
+
 
 class TestAllPositive:
     def setup_method(self):
@@ -74,24 +76,29 @@ class TestAllPositive:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["all_positive"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["all_positive"]["Return.annualized"], abs=TOL
+        )
 
     def test_return_cumulative(self, edge_benchmarks):
         assert pa.return_cumulative(self.R) == pytest.approx(
-            edge_benchmarks["all_positive"]["Return.cumulative"], abs=TOL)
+            edge_benchmarks["all_positive"]["Return.cumulative"], abs=TOL
+        )
 
     def test_std_dev_annualized(self, edge_benchmarks):
         assert pa.std_dev_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["all_positive"]["StdDev.annualized"], abs=TOL)
+            edge_benchmarks["all_positive"]["StdDev.annualized"], abs=TOL
+        )
 
     def test_sharpe_ratio(self, edge_benchmarks):
         assert pa.sharpe_ratio(self.R, Rf=0, annualize=False) == pytest.approx(
-            edge_benchmarks["all_positive"]["SharpeRatio.StdDev"], abs=TOL)
+            edge_benchmarks["all_positive"]["SharpeRatio.StdDev"], abs=TOL
+        )
 
     def test_downside_deviation_zero(self, edge_benchmarks):
         # All returns > 0 → downside deviation = 0
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["all_positive"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["all_positive"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino_infinite(self):
         # downside_deviation = 0 → Sortino should be + inf or nan (not a finite negative)
@@ -99,50 +106,49 @@ class TestAllPositive:
         assert not np.isfinite(result)  # R returns Inf; Python gets nan or inf — both acceptable
 
     def test_max_drawdown_zero(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["all_positive"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["all_positive"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index_zero(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["all_positive"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["all_positive"]["UlcerIndex"], abs=TOL)
 
     def test_pain_index_zero(self, edge_benchmarks):
-        assert pa.pain_index(self.R) == pytest.approx(
-            edge_benchmarks["all_positive"]["PainIndex"], abs=TOL)
+        assert pa.pain_index(self.R) == pytest.approx(edge_benchmarks["all_positive"]["PainIndex"], abs=TOL)
 
     def test_average_drawdown_zero(self, edge_benchmarks):
-        assert pa.average_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["all_positive"]["AverageDrawdown"], abs=TOL)
+        assert pa.average_drawdown(self.R) == pytest.approx(edge_benchmarks["all_positive"]["AverageDrawdown"], abs=TOL)
 
     def test_skewness(self, edge_benchmarks):
         assert pa.skewness(self.R, method="moment") == pytest.approx(
-            edge_benchmarks["all_positive"]["skewness.moment"], abs=TOL)
+            edge_benchmarks["all_positive"]["skewness.moment"], abs=TOL
+        )
 
     def test_kurtosis(self, edge_benchmarks):
         assert pa.kurtosis(self.R, method="excess") == pytest.approx(
-            edge_benchmarks["all_positive"]["kurtosis.excess"], abs=TOL)
+            edge_benchmarks["all_positive"]["kurtosis.excess"], abs=TOL
+        )
 
     def test_capm_beta(self, edge_benchmarks):
-        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["all_positive"]["CAPM.beta"], abs=TOL)
+        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(edge_benchmarks["all_positive"]["CAPM.beta"], abs=TOL)
 
     def test_capm_alpha(self, edge_benchmarks):
-        assert pa.capm_alpha(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["all_positive"]["CAPM.alpha"], abs=TOL)
+        assert pa.capm_alpha(self.R, self.Rb) == pytest.approx(edge_benchmarks["all_positive"]["CAPM.alpha"], abs=TOL)
 
     def test_tracking_error(self, edge_benchmarks):
         assert pa.tracking_error(self.R, self.Rb, scale=12) == pytest.approx(
-            edge_benchmarks["all_positive"]["TrackingError"], abs=TOL)
+            edge_benchmarks["all_positive"]["TrackingError"], abs=TOL
+        )
 
     def test_active_premium(self, edge_benchmarks):
         assert pa.active_premium(self.R, self.Rb, scale=12) == pytest.approx(
-            edge_benchmarks["all_positive"]["ActivePremium"], abs=TOL)
+            edge_benchmarks["all_positive"]["ActivePremium"], abs=TOL
+        )
 
 
 # ---------------------------------------------------------------------------
 # 2. All-Negative returns
 #    Expected: max drawdown ≈ abs(cumulative return), negative Sharpe, positive DD
 # ---------------------------------------------------------------------------
+
 
 class TestAllNegative:
     def setup_method(self):
@@ -151,32 +157,35 @@ class TestAllNegative:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["all_negative"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["all_negative"]["Return.annualized"], abs=TOL
+        )
 
     def test_return_cumulative(self, edge_benchmarks):
         assert pa.return_cumulative(self.R) == pytest.approx(
-            edge_benchmarks["all_negative"]["Return.cumulative"], abs=TOL)
+            edge_benchmarks["all_negative"]["Return.cumulative"], abs=TOL
+        )
 
     def test_sharpe_negative(self, edge_benchmarks):
         assert pa.sharpe_ratio(self.R, Rf=0, annualize=False) == pytest.approx(
-            edge_benchmarks["all_negative"]["SharpeRatio.StdDev"], abs=TOL)
+            edge_benchmarks["all_negative"]["SharpeRatio.StdDev"], abs=TOL
+        )
 
     def test_downside_deviation(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["all_negative"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["all_negative"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino_negative(self, edge_benchmarks):
         assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["all_negative"]["SortinoRatio.0"], abs=TOL)
+            edge_benchmarks["all_negative"]["SortinoRatio.0"], abs=TOL
+        )
 
     def test_max_drawdown(self, edge_benchmarks):
         # max drawdown ≈ abs(cumulative return) for monotone-decreasing
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["all_negative"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["all_negative"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["all_negative"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["all_negative"]["UlcerIndex"], abs=TOL)
 
     def test_var_historical(self, edge_benchmarks):
         # VaR returned as loss (positive): R returns negative sign, we negate
@@ -193,13 +202,13 @@ class TestAllNegative:
 
     def test_capm_beta_negative(self, edge_benchmarks):
         # Negative returns vs positive benchmark → negative beta
-        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["all_negative"]["CAPM.beta"], abs=TOL)
+        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(edge_benchmarks["all_negative"]["CAPM.beta"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 3. Series starting with a loss (tests drawdown-from-start handling)
 # ---------------------------------------------------------------------------
+
 
 class TestStartsWithLoss:
     def setup_method(self):
@@ -208,24 +217,25 @@ class TestStartsWithLoss:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["starts_with_loss"]["Return.annualized"], abs=TOL
+        )
 
     def test_max_drawdown(self, edge_benchmarks):
         # First period is -5%, so MaxDrawdown ≥ 0.05
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["starts_with_loss"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["starts_with_loss"]["UlcerIndex"], abs=TOL)
 
     def test_average_drawdown(self, edge_benchmarks):
         assert pa.average_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["AverageDrawdown"], abs=TOL)
+            edge_benchmarks["starts_with_loss"]["AverageDrawdown"], abs=TOL
+        )
 
     def test_downside_deviation(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["starts_with_loss"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_var_historical(self, edge_benchmarks):
         r_val = edge_benchmarks["starts_with_loss"]["VaR.hist"]
@@ -237,20 +247,22 @@ class TestStartsWithLoss:
 
     def test_skewness(self, edge_benchmarks):
         assert pa.skewness(self.R, method="moment") == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["skewness.moment"], abs=TOL)
+            edge_benchmarks["starts_with_loss"]["skewness.moment"], abs=TOL
+        )
 
     def test_capm_beta(self, edge_benchmarks):
-        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["CAPM.beta"], abs=TOL)
+        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(edge_benchmarks["starts_with_loss"]["CAPM.beta"], abs=TOL)
 
     def test_tracking_error(self, edge_benchmarks):
         assert pa.tracking_error(self.R, self.Rb, scale=12) == pytest.approx(
-            edge_benchmarks["starts_with_loss"]["TrackingError"], abs=TOL)
+            edge_benchmarks["starts_with_loss"]["TrackingError"], abs=TOL
+        )
 
 
 # ---------------------------------------------------------------------------
 # 4. Constant positive returns (zero std dev → Sharpe = NaN)
 # ---------------------------------------------------------------------------
+
 
 class TestConstantPositive:
     def setup_method(self):
@@ -258,11 +270,13 @@ class TestConstantPositive:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["constant_pos"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["constant_pos"]["Return.annualized"], abs=TOL
+        )
 
     def test_std_dev_zero(self, edge_benchmarks):
         assert pa.std_dev_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["constant_pos"]["StdDev.annualized"], abs=TOL)
+            edge_benchmarks["constant_pos"]["StdDev.annualized"], abs=TOL
+        )
 
     def test_sharpe_nan_when_zero_std(self):
         # R returns NaN for Sharpe when StdDev=0 (division by zero).
@@ -273,27 +287,25 @@ class TestConstantPositive:
         assert np.isnan(result) or np.isinf(result) or abs(result) > 1e6
 
     def test_max_drawdown_zero(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["constant_pos"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["constant_pos"]["MaxDrawdown"], abs=TOL)
 
     def test_downside_deviation_zero(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["constant_pos"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["constant_pos"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_semi_deviation_zero(self, edge_benchmarks):
-        assert pa.semi_deviation(self.R) == pytest.approx(
-            edge_benchmarks["constant_pos"]["SemiDeviation"], abs=TOL)
+        assert pa.semi_deviation(self.R) == pytest.approx(edge_benchmarks["constant_pos"]["SemiDeviation"], abs=TOL)
 
     def test_ulcer_pain_zero(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["constant_pos"]["UlcerIndex"], abs=TOL)
-        assert pa.pain_index(self.R) == pytest.approx(
-            edge_benchmarks["constant_pos"]["PainIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["constant_pos"]["UlcerIndex"], abs=TOL)
+        assert pa.pain_index(self.R) == pytest.approx(edge_benchmarks["constant_pos"]["PainIndex"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 5. Constant negative returns (zero std dev, non-trivial downside)
 # ---------------------------------------------------------------------------
+
 
 class TestConstantNegative:
     def setup_method(self):
@@ -301,41 +313,43 @@ class TestConstantNegative:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["constant_neg"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["constant_neg"]["Return.annualized"], abs=TOL
+        )
 
     def test_std_dev_zero(self, edge_benchmarks):
         assert pa.std_dev_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["constant_neg"]["StdDev.annualized"], abs=TOL)
+            edge_benchmarks["constant_neg"]["StdDev.annualized"], abs=TOL
+        )
 
     def test_downside_deviation(self, edge_benchmarks):
         # All returns = -0.01, MAR=0 → downside_deviation = 0.01
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["constant_neg"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["constant_neg"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino(self, edge_benchmarks):
         assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["constant_neg"]["SortinoRatio.0"], abs=TOL)
+            edge_benchmarks["constant_neg"]["SortinoRatio.0"], abs=TOL
+        )
 
     def test_var_historical(self, edge_benchmarks):
         r_val = edge_benchmarks["constant_neg"]["VaR.hist"]
         assert -pa.var_historical(self.R, p=0.95) == pytest.approx(r_val, abs=TOL)
 
     def test_max_drawdown(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["constant_neg"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["constant_neg"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["constant_neg"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["constant_neg"]["UlcerIndex"], abs=TOL)
 
     def test_pain_index(self, edge_benchmarks):
-        assert pa.pain_index(self.R) == pytest.approx(
-            edge_benchmarks["constant_neg"]["PainIndex"], abs=TOL)
+        assert pa.pain_index(self.R) == pytest.approx(edge_benchmarks["constant_neg"]["PainIndex"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 6. Very short series: 2 observations
 # ---------------------------------------------------------------------------
+
 
 class TestTwoObservations:
     def setup_method(self):
@@ -343,50 +357,53 @@ class TestTwoObservations:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["two_obs"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["two_obs"]["Return.annualized"], abs=TOL
+        )
 
     def test_return_cumulative(self, edge_benchmarks):
-        assert pa.return_cumulative(self.R) == pytest.approx(
-            edge_benchmarks["two_obs"]["Return.cumulative"], abs=TOL)
+        assert pa.return_cumulative(self.R) == pytest.approx(edge_benchmarks["two_obs"]["Return.cumulative"], abs=TOL)
 
     def test_std_dev_annualized(self, edge_benchmarks):
         assert pa.std_dev_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["two_obs"]["StdDev.annualized"], abs=TOL)
+            edge_benchmarks["two_obs"]["StdDev.annualized"], abs=TOL
+        )
 
     def test_sharpe(self, edge_benchmarks):
         assert pa.sharpe_ratio(self.R, Rf=0, annualize=False) == pytest.approx(
-            edge_benchmarks["two_obs"]["SharpeRatio.StdDev"], abs=TOL)
+            edge_benchmarks["two_obs"]["SharpeRatio.StdDev"], abs=TOL
+        )
 
     def test_max_drawdown(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["two_obs"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["two_obs"]["MaxDrawdown"], abs=TOL)
 
     def test_downside_deviation(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["two_obs"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["two_obs"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino(self, edge_benchmarks):
-        assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["two_obs"]["SortinoRatio.0"], abs=TOL)
+        assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(edge_benchmarks["two_obs"]["SortinoRatio.0"], abs=TOL)
 
     def test_skewness_zero_for_symmetric(self, edge_benchmarks):
         # Two symmetric values → skewness = 0
         assert pa.skewness(self.R, method="moment") == pytest.approx(
-            edge_benchmarks["two_obs"]["skewness.moment"], abs=TOL)
+            edge_benchmarks["two_obs"]["skewness.moment"], abs=TOL
+        )
 
     def test_kurtosis_minus_two(self, edge_benchmarks):
         # Excess kurtosis for 2 points = -2 (minimum possible)
         assert pa.kurtosis(self.R, method="excess") == pytest.approx(
-            edge_benchmarks["two_obs"]["kurtosis.excess"], abs=TOL)
+            edge_benchmarks["two_obs"]["kurtosis.excess"], abs=TOL
+        )
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["two_obs"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["two_obs"]["UlcerIndex"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 7. Single observation
 # ---------------------------------------------------------------------------
+
 
 class TestSingleObservation:
     def setup_method(self):
@@ -395,11 +412,13 @@ class TestSingleObservation:
     def test_return_annualized(self, edge_benchmarks):
         # (1 + 0.05)^(12/1) - 1
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["single_obs"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["single_obs"]["Return.annualized"], abs=TOL
+        )
 
     def test_return_cumulative(self, edge_benchmarks):
         assert pa.return_cumulative(self.R) == pytest.approx(
-            edge_benchmarks["single_obs"]["Return.cumulative"], abs=TOL)
+            edge_benchmarks["single_obs"]["Return.cumulative"], abs=TOL
+        )
 
     def test_std_dev_nan(self):
         # Single obs → std = NaN (ddof=1 requires at least 2 obs)
@@ -407,22 +426,22 @@ class TestSingleObservation:
 
     def test_max_drawdown_zero(self, edge_benchmarks):
         # Single positive obs → no drawdown
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["single_obs"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["single_obs"]["MaxDrawdown"], abs=TOL)
 
     def test_downside_deviation_zero(self, edge_benchmarks):
         # Single positive return → downside = 0
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["single_obs"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["single_obs"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_ulcer_zero(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["single_obs"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["single_obs"]["UlcerIndex"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 8. Returns with many zeros
 # ---------------------------------------------------------------------------
+
 
 class TestMixedZeros:
     def setup_method(self):
@@ -431,40 +450,40 @@ class TestMixedZeros:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["mixed_zeros"]["Return.annualized"], abs=TOL
+        )
 
     def test_downside_deviation(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["mixed_zeros"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino(self, edge_benchmarks):
         assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["SortinoRatio.0"], abs=TOL)
+            edge_benchmarks["mixed_zeros"]["SortinoRatio.0"], abs=TOL
+        )
 
     def test_max_drawdown(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["mixed_zeros"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["mixed_zeros"]["UlcerIndex"], abs=TOL)
 
     def test_pain_index(self, edge_benchmarks):
-        assert pa.pain_index(self.R) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["PainIndex"], abs=TOL)
+        assert pa.pain_index(self.R) == pytest.approx(edge_benchmarks["mixed_zeros"]["PainIndex"], abs=TOL)
 
     def test_var_historical(self, edge_benchmarks):
         r_val = edge_benchmarks["mixed_zeros"]["VaR.hist"]
         assert -pa.var_historical(self.R, p=0.95) == pytest.approx(r_val, abs=TOL)
 
     def test_capm_beta(self, edge_benchmarks):
-        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["mixed_zeros"]["CAPM.beta"], abs=TOL)
+        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(edge_benchmarks["mixed_zeros"]["CAPM.beta"], abs=TOL)
 
 
 # ---------------------------------------------------------------------------
 # 9. High volatility alternating returns
 # ---------------------------------------------------------------------------
+
 
 class TestHighVolatility:
     def setup_method(self):
@@ -473,23 +492,22 @@ class TestHighVolatility:
 
     def test_return_annualized(self, edge_benchmarks):
         assert pa.return_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["high_vol"]["Return.annualized"], abs=TOL)
+            edge_benchmarks["high_vol"]["Return.annualized"], abs=TOL
+        )
 
     def test_std_dev_annualized(self, edge_benchmarks):
         assert pa.std_dev_annualized(self.R, scale=12) == pytest.approx(
-            edge_benchmarks["high_vol"]["StdDev.annualized"], abs=TOL)
+            edge_benchmarks["high_vol"]["StdDev.annualized"], abs=TOL
+        )
 
     def test_max_drawdown(self, edge_benchmarks):
-        assert pa.max_drawdown(self.R) == pytest.approx(
-            edge_benchmarks["high_vol"]["MaxDrawdown"], abs=TOL)
+        assert pa.max_drawdown(self.R) == pytest.approx(edge_benchmarks["high_vol"]["MaxDrawdown"], abs=TOL)
 
     def test_ulcer_index(self, edge_benchmarks):
-        assert pa.ulcer_index(self.R) == pytest.approx(
-            edge_benchmarks["high_vol"]["UlcerIndex"], abs=TOL)
+        assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["high_vol"]["UlcerIndex"], abs=TOL)
 
     def test_pain_index(self, edge_benchmarks):
-        assert pa.pain_index(self.R) == pytest.approx(
-            edge_benchmarks["high_vol"]["PainIndex"], abs=TOL)
+        assert pa.pain_index(self.R) == pytest.approx(edge_benchmarks["high_vol"]["PainIndex"], abs=TOL)
 
     def test_var_historical(self, edge_benchmarks):
         r_val = edge_benchmarks["high_vol"]["VaR.hist"]
@@ -509,32 +527,34 @@ class TestHighVolatility:
 
     def test_downside_deviation(self, edge_benchmarks):
         assert pa.downside_deviation(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["high_vol"]["DownsideDeviation.0"], abs=TOL)
+            edge_benchmarks["high_vol"]["DownsideDeviation.0"], abs=TOL
+        )
 
     def test_sortino(self, edge_benchmarks):
-        assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(
-            edge_benchmarks["high_vol"]["SortinoRatio.0"], abs=TOL)
+        assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(edge_benchmarks["high_vol"]["SortinoRatio.0"], abs=TOL)
 
     def test_skewness(self, edge_benchmarks):
         assert pa.skewness(self.R, method="moment") == pytest.approx(
-            edge_benchmarks["high_vol"]["skewness.moment"], abs=TOL)
+            edge_benchmarks["high_vol"]["skewness.moment"], abs=TOL
+        )
 
     def test_kurtosis(self, edge_benchmarks):
         assert pa.kurtosis(self.R, method="excess") == pytest.approx(
-            edge_benchmarks["high_vol"]["kurtosis.excess"], abs=TOL)
+            edge_benchmarks["high_vol"]["kurtosis.excess"], abs=TOL
+        )
 
     def test_capm_beta(self, edge_benchmarks):
-        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["high_vol"]["CAPM.beta"], abs=TOL)
+        assert pa.capm_beta(self.R, self.Rb) == pytest.approx(edge_benchmarks["high_vol"]["CAPM.beta"], abs=TOL)
 
     def test_capm_alpha(self, edge_benchmarks):
-        assert pa.capm_alpha(self.R, self.Rb) == pytest.approx(
-            edge_benchmarks["high_vol"]["CAPM.alpha"], abs=TOL)
+        assert pa.capm_alpha(self.R, self.Rb) == pytest.approx(edge_benchmarks["high_vol"]["CAPM.alpha"], abs=TOL)
 
     def test_tracking_error(self, edge_benchmarks):
         assert pa.tracking_error(self.R, self.Rb, scale=12) == pytest.approx(
-            edge_benchmarks["high_vol"]["TrackingError"], abs=TOL)
+            edge_benchmarks["high_vol"]["TrackingError"], abs=TOL
+        )
 
     def test_active_premium(self, edge_benchmarks):
         assert pa.active_premium(self.R, self.Rb, scale=12) == pytest.approx(
-            edge_benchmarks["high_vol"]["ActivePremium"], abs=TOL)
+            edge_benchmarks["high_vol"]["ActivePremium"], abs=TOL
+        )

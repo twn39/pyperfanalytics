@@ -25,8 +25,9 @@ def test_advanced_ratios(managers_data):
     assert bernardo_ledoit_ratio(ham1) == pytest.approx(3.190689, abs=1e-6)
     assert d_ratio(ham1) == pytest.approx(1.0 / 3.190689, abs=1e-6)
     assert rachev_ratio(ham1) == pytest.approx(1.482528, abs=1e-6)
-    assert prospect_ratio(ham1, MAR=0) == pytest.approx(0.328465, abs=1e-5) # Adjusted tolerance
+    assert prospect_ratio(ham1, MAR=0) == pytest.approx(0.328465, abs=1e-5)  # Adjusted tolerance
     assert adjusted_sharpe_ratio(ham1) == pytest.approx(0.9198034, abs=1e-6)
+
 
 def test_advanced_ratios_dataframe(managers_data):
     # Test on multiple columns

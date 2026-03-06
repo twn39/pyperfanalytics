@@ -1,6 +1,6 @@
 import pytest
 
-from pyperfanalytics import downside_deviation, sortino_ratio, burke_ratio
+from pyperfanalytics import burke_ratio, downside_deviation, sortino_ratio
 
 
 def test_downside_metrics_edhec(edhec_data):
@@ -18,7 +18,7 @@ def test_downside_metrics_edhec(edhec_data):
         "Merger Arbitrage": 0.00667517,
         "Relative Value": 0.008723539,
         "Short Selling": 0.03421968,
-        "Funds of Funds": 0.01088799
+        "Funds of Funds": 0.01088799,
     }
 
     r_sortino_0 = {
@@ -34,7 +34,7 @@ def test_downside_metrics_edhec(edhec_data):
         "Merger Arbitrage": 1.016434,
         "Relative Value": 0.7681878,
         "Short Selling": 0.1216021,
-        "Funds of Funds": 0.5435736
+        "Funds of Funds": 0.5435736,
     }
 
     py_dd = downside_deviation(edhec_data, MAR=0)
@@ -44,9 +44,9 @@ def test_downside_metrics_edhec(edhec_data):
         assert py_dd[asset] == pytest.approx(r_dd_0[asset], abs=1e-6)
         assert py_sortino[asset] == pytest.approx(r_sortino_0[asset], abs=1e-6)
 
+
 def test_burke_ratio_corrected():
     import pandas as pd
-    import numpy as np
 
     # portfolio_bacon column 1, d=7 drawdown events, n=24 observations
     # Fixed two deviations from paper/R:
@@ -55,7 +55,7 @@ def test_burke_ratio_corrected():
     # New paper-correct values (Burke 1994 definition with RMS denominator):
     #   Burke Ratio = 2.000773, Modified Burke Ratio = 9.801745
     # Supersedes old values: Burke=0.756221, ModBurke=3.704711 (were based on sqrt(sum) form)
-    pb = pd.read_csv('third_party/PerformanceAnalytics/data/portfolio_bacon.csv', index_col=0)
+    pb = pd.read_csv("third_party/PerformanceAnalytics/data/portfolio_bacon.csv", index_col=0)
     col1 = pb.iloc[:, 0]
 
     b_ratio = burke_ratio(col1, scale=12)

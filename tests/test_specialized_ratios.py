@@ -22,8 +22,8 @@ def test_specialized_ratios(managers_data):
     #   annualize Rf first: rf_ann = (1 + rf_monthly)^12 - 1 ≈ 3.94%/yr.
     #   R values were: Martin=3.710068, Pain=8.572904
 
-    ra = managers_data['HAM1']
-    rf = managers_data['US 3m TR']
+    ra = managers_data["HAM1"]
+    rf = managers_data["US 3m TR"]
     rf_mean = rf.mean()
 
     # Kelly
@@ -46,8 +46,9 @@ def test_specialized_ratios(managers_data):
     assert mr == pytest.approx(2.71048167, abs=1e-6)
     assert pr == pytest.approx(6.26314607, abs=1e-6)
 
+
 def test_upr_full_method(managers_data):
-    ra = managers_data['HAM1']
+    ra = managers_data["HAM1"]
     # R: UpsidePotentialRatio(ra, MAR=0, method="full")
     # Numerator: (sum(R > 0) / 132) / DownsideDeviation(R, 0, method="full")
     # Let's just trust our method="full" implementation logic if "subset" passed.

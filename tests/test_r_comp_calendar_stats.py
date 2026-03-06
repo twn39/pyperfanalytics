@@ -12,13 +12,14 @@ def test_table_calendar_returns(managers_data):
     tab = table_calendar_returns(ham1)
 
     # Benchmark 1996 HAM1: 0.7  1.9  1.6 -0.9  0.8 -0.4 -2.3  4.0  1.5  2.9 1.6  1.8 | Total: 13.6
-    assert tab.loc[1996, 'Jan'] == 0.7
-    assert tab.loc[1996, 'Dec'] == 1.8
-    assert tab.loc[1996, 'HAM1'] == 13.6
+    assert tab.loc[1996, "Jan"] == 0.7
+    assert tab.loc[1996, "Dec"] == 1.8
+    assert tab.loc[1996, "HAM1"] == 13.6
 
     # 2006 HAM1: 6.9 ... 1.1 | Total: 20.5
-    assert tab.loc[2006, 'Jan'] == 6.9
-    assert tab.loc[2006, 'HAM1'] == 20.5
+    assert tab.loc[2006, "Jan"] == 6.9
+    assert tab.loc[2006, "HAM1"] == 20.5
+
 
 def test_table_higher_moments(managers_data):
     ham1to3 = managers_data.iloc[:, 0:3]
@@ -37,6 +38,7 @@ def test_table_higher_moments(managers_data):
     assert tab.loc["Beta CoVariance", col] == 0.3906
     assert tab.loc["Beta CoSkewness", col] == 0.5602
     assert tab.loc["Beta CoKurtosis", col] == 0.4815
+
 
 def test_table_variability(managers_data):
     ham1 = managers_data["HAM1"]

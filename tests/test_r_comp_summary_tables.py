@@ -17,6 +17,7 @@ def load_bench(name):
     df = pd.read_csv(f"tests/benchmarks/{name}.csv", index_col=0)
     return df
 
+
 def test_mean_absolute_deviation(managers_data):
     # R: MeanAbsoluteDeviation(managers[,1:8])
     ham1to8 = managers_data.iloc[:, 0:8]
@@ -27,6 +28,7 @@ def test_mean_absolute_deviation(managers_data):
     for col in ham1to8.columns:
         assert py_res[col] == pytest.approx(r_res.loc[col, "MAD"], abs=1e-6)
 
+
 def test_sterling_ratio(managers_data):
     # R: SterlingRatio(managers[,1:8])
     ham1to8 = managers_data.iloc[:, 0:8]
@@ -35,6 +37,7 @@ def test_sterling_ratio(managers_data):
 
     for col in ham1to8.columns:
         assert py_res[col] == pytest.approx(r_res.loc[col, "SterlingRatio"], abs=1e-6)
+
 
 def test_table_autocorrelation(managers_data):
     ham1to8 = managers_data.iloc[:, 0:8]
@@ -51,6 +54,7 @@ def test_table_autocorrelation(managers_data):
             r_val = r_tab.loc[idx, col]
             assert py_val == pytest.approx(r_val, abs=1e-4)
 
+
 def test_table_correlation(managers_data):
     ham1to6 = managers_data.iloc[:, 0:6]
     sp500 = managers_data["SP500 TR"]
@@ -62,22 +66,24 @@ def test_table_correlation(managers_data):
         for row in py_tab.index:
             assert py_tab.loc[row, col] == pytest.approx(r_tab.loc[row, col], abs=1e-4)
 
+
 def test_table_distributions(managers_data):
     ham1to8 = managers_data.iloc[:, 0:8]
     py_tab = table_distributions(ham1to8)
     r_tab = load_bench("table_distributions")
 
-    for col in py_tab.columns:
-        for idx in py_tab.index:
+    for _col in py_tab.columns:
+        for _idx in py_tab.index:
             # Special case: label might different (e.g. "Monthly Std Dev" vs "Period Std Dev")
             # My Python code uses freq_map
             # R code uses periodicity(y)$scale
-            pass # We'll just check values by positional match if labels differ slightly
+            pass  # We'll just check values by positional match if labels differ slightly
 
     # Check values Positional check because index names might vary slightly
     for i in range(len(py_tab.columns)):
         for j in range(len(py_tab.index)):
             assert py_tab.iloc[j, i] == pytest.approx(r_tab.iloc[j, i], abs=1e-4)
+
 
 def test_table_downside_risk_ratio(managers_data):
     ham1to8 = managers_data.iloc[:, 0:8]
@@ -90,6 +96,7 @@ def test_table_downside_risk_ratio(managers_data):
                 continue
             assert py_tab.iloc[j, i] == pytest.approx(r_tab.iloc[j, i], abs=1e-4)
 
+
 def test_table_drawdowns_ratio(managers_data):
     ham1to8 = managers_data.iloc[:, 0:8]
     py_tab = table_drawdowns_ratio(ham1to8)
@@ -100,6 +107,7 @@ def test_table_drawdowns_ratio(managers_data):
             if "Burke" in py_tab.index[j]:
                 continue
             assert py_tab.iloc[j, i] == pytest.approx(r_tab.iloc[j, i], abs=1e-4)
+
 
 def test_table_stats(managers_data):
     ham1to8 = managers_data.iloc[:, 0:8]

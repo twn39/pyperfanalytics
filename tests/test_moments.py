@@ -36,6 +36,7 @@ def test_skewness_kurtosis(managers_data):
     assert kurtosis(ham1, method="sample") == pytest.approx(5.570361, abs=1e-6)
     assert kurtosis(ham1, method="sample_excess") == pytest.approx(2.500415, abs=1e-6)
 
+
 def test_co_moments(managers_data):
     ham1 = managers_data["HAM1"]
     sp500 = managers_data["SP500 TR"]

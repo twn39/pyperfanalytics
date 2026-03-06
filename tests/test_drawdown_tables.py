@@ -26,6 +26,7 @@ def test_table_drawdowns(managers_data):
     assert str(res.iloc[0]["Trough"].date()) == "2003-02-28"
     assert str(res.iloc[0]["To"].date()) == "2003-07-31"
 
+
 def test_table_drawdowns_unrecovered(managers_data):
     # Test with a series that hasn't recovered (e.g. from a trough onwards)
     ham1 = managers_data.iloc[:, 0]
@@ -37,4 +38,4 @@ def test_table_drawdowns_unrecovered(managers_data):
     # matching the logic we added in table_drawdowns.
     last_dd = res.iloc[0]
     if last_dd["Depth"] < 0 and pd.isna(last_dd["To"]):
-         assert pd.isna(last_dd["Recovery"])
+        assert pd.isna(last_dd["Recovery"])

@@ -25,11 +25,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import pyperfanalytics as pa
 from pyperfanalytics.tables import (
     table_annualized_returns,
-    table_capm,
     table_calendar_returns,
+    table_capm,
     table_capture_ratios,
     table_downside_risk,
     table_drawdowns,
@@ -39,10 +38,10 @@ from pyperfanalytics.tables import (
     table_variability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def tables_bench():
@@ -64,17 +63,17 @@ def managers():
 
 @pytest.fixture(scope="module")
 def Ra(managers):
-    return managers.iloc[:, 0:3]   # HAM1, HAM2, HAM3
+    return managers.iloc[:, 0:3]  # HAM1, HAM2, HAM3
 
 
 @pytest.fixture(scope="module")
 def Ra6(managers):
-    return managers.iloc[:, 0:6]   # HAM1..HAM6
+    return managers.iloc[:, 0:6]  # HAM1..HAM6
 
 
 @pytest.fixture(scope="module")
 def Rb(managers):
-    return managers.iloc[:, 7]     # SP500 TR
+    return managers.iloc[:, 7]  # SP500 TR
 
 
 TOL = 1e-3
@@ -92,6 +91,7 @@ def _approx_or_nan(py_val, r_val, tol=TOL):
 # 1. table_capm
 # ---------------------------------------------------------------------------
 
+
 class TestTableCAPM:
     """Verify table_capm against R's table.CAPM output.
 
@@ -99,7 +99,8 @@ class TestTableCAPM:
     R column keys: 'HAM1 to SP500.TR' (dots); Python keys: 'HAM1 to SP500 TR' (space).
     We use positional access (iloc) to avoid name-mangling issues.
     """
-    R_COLS = ["HAM1 to SP500.TR", "HAM2 to SP500.TR", "HAM3 to SP500.TR"]   # R keys
+
+    R_COLS = ["HAM1 to SP500.TR", "HAM2 to SP500.TR", "HAM3 to SP500.TR"]  # R keys
 
     def _r_val(self, bench, col_key, row_name):
         """Get a value from the R benchmark dict by column key and row name."""
@@ -150,6 +151,7 @@ class TestTableCAPM:
 # 2. table_downside_risk
 # ---------------------------------------------------------------------------
 
+
 class TestTableDownsideRisk:
     """Verify table_downside_risk against R's table.DownsideRisk output."""
 
@@ -191,13 +193,14 @@ class TestTableDownsideRisk:
 
     def test_output_shape(self, Ra, tables_bench):
         result = table_downside_risk(Ra, scale=12, Rf=0)
-        assert result.shape[0] == 11   # 11 rows matching R
+        assert result.shape[0] == 11  # 11 rows matching R
         assert list(result.columns) == ["HAM1", "HAM2", "HAM3"]
 
 
 # ---------------------------------------------------------------------------
 # 3. table_capture_ratios
 # ---------------------------------------------------------------------------
+
 
 class TestTableCaptureRatios:
     """Verify table_capture_ratios against R's table.CaptureRatios."""
@@ -206,7 +209,7 @@ class TestTableCaptureRatios:
     def test_up_capture(self, Ra, Rb, asset, tables_bench):
         result = table_capture_ratios(Ra, Rb)
         r_row_idx = tables_bench["table_capture_ratios_rownames"].index(asset)
-        r_col_idx = tables_bench["table_capture_ratios_colnames"].index("Up Capture")
+        tables_bench["table_capture_ratios_colnames"].index("Up Capture")
         r_val = tables_bench["table_capture_ratios"]["Up Capture"][r_row_idx]
         assert result.loc[asset, "Up Capture"] == pytest.approx(r_val, abs=TOL)
 
@@ -226,6 +229,7 @@ class TestTableCaptureRatios:
 # ---------------------------------------------------------------------------
 # 4. table_up_down_ratios
 # ---------------------------------------------------------------------------
+
 
 class TestTableUpDownRatios:
     """Verify table_up_down_ratios against R's table.UpDownRatios."""
@@ -258,13 +262,14 @@ class TestTableUpDownRatios:
 # 5. table_calendar_returns
 # ---------------------------------------------------------------------------
 
+
 class TestTableCalendarReturns:
     """Verify table_calendar_returns against R's table.CalendarReturns."""
 
     def test_year_1996_jan(self, managers, tables_bench):
         ham1 = managers.iloc[:, 0]
         result = table_calendar_returns(ham1)
-        r_val = tables_bench["table_calendar_returns"][0]["Jan"]   # 1996 row
+        r_val = tables_bench["table_calendar_returns"][0]["Jan"]  # 1996 row
         if r_val is None:
             assert pd.isna(result.loc[1996, "Jan"])
         else:
@@ -294,18 +299,20 @@ class TestTableCalendarReturns:
         ham1 = managers.iloc[:, 0]
         result = table_calendar_returns(ham1)
         # Last column should be the annual total
-        assert result.shape[1] == 13   # 12 months + 1 annual
+        assert result.shape[1] == 13  # 12 months + 1 annual
 
 
 # ---------------------------------------------------------------------------
 # 6. table_higher_moments
 # ---------------------------------------------------------------------------
 
+
 class TestTableHigherMoments:
     """Verify table_higher_moments against R's table.HigherMoments.
 
     Uses positional access (iloc) to avoid R dot-notation vs Python space-notation mismatch.
     """
+
     R_COLS = ["HAM1 to SP500.TR", "HAM2 to SP500.TR", "HAM3 to SP500.TR"]  # R keys
 
     def _r_val(self, bench, col_key, row_name):
@@ -339,12 +346,13 @@ class TestTableHigherMoments:
 
     def test_output_shape(self, Ra, Rb):
         result = table_higher_moments(Ra, Rb)
-        assert result.shape == (5, 3)   # 5 metrics × 3 assets
+        assert result.shape == (5, 3)  # 5 metrics × 3 assets
 
 
 # ---------------------------------------------------------------------------
 # 7. table_prob_skewness_kurtosis
 # ---------------------------------------------------------------------------
+
 
 class TestTableProbSkewnessKurtosis:
     """Verify table_prob_skewness_kurtosis against manual R benchmarks."""
@@ -375,12 +383,13 @@ class TestTableProbSkewnessKurtosis:
 
     def test_output_shape(self, Ra):
         result = table_prob_skewness_kurtosis(Ra)
-        assert result.shape == (8, 3)   # 8 methods × 3 assets
+        assert result.shape == (8, 3)  # 8 methods × 3 assets
 
 
 # ---------------------------------------------------------------------------
 # 8. table_variability
 # ---------------------------------------------------------------------------
+
 
 class TestTableVariability:
     """Verify table_variability against R component function benchmarks."""
@@ -405,12 +414,13 @@ class TestTableVariability:
 
     def test_output_shape(self, Ra):
         result = table_variability(Ra, scale=12)
-        assert result.shape == (3, 3)   # 3 metrics × 3 assets
+        assert result.shape == (3, 3)  # 3 metrics × 3 assets
 
 
 # ---------------------------------------------------------------------------
 # 9. table_drawdowns
 # ---------------------------------------------------------------------------
+
 
 class TestTableDrawdowns:
     """Verify table_drawdowns against R's table.Drawdowns output."""
@@ -463,6 +473,7 @@ class TestTableDrawdowns:
 # 10. table_annualized_returns (expanded from existing test_tables.py)
 # ---------------------------------------------------------------------------
 
+
 class TestTableAnnualizedReturns:
     """Extended tests for table_annualized_returns."""
 
@@ -489,8 +500,8 @@ class TestTableAnnualizedReturns:
     def test_output_shape(self, managers):
         ra = managers.iloc[:, 0:6]
         result = table_annualized_returns(ra)
-        assert result.shape[0] == 3       # 3 rows: Return, StdDev, Sharpe
-        assert result.shape[1] == 6       # 6 assets
+        assert result.shape[0] == 3  # 3 rows: Return, StdDev, Sharpe
+        assert result.shape[1] == 6  # 6 assets
 
     def test_sharpe_label_has_rf(self, managers):
         ra = managers.iloc[:, 0:6]

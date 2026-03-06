@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr, t
@@ -69,11 +67,11 @@ from pyperfanalytics.utils import (
 
 
 def table_annualized_returns(
-    R: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    R: pd.Series | pd.DataFrame,
+    scale: int | None = None,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
     geometric: bool = True,
-    digits: int = 6
+    digits: int = 6,
 ) -> pd.DataFrame:
     r"""
     Annualized Returns Summary: Statistics and Stylized Facts
@@ -124,9 +122,7 @@ def table_annualized_returns(
 
     # Combine into a table
     if isinstance(R, pd.Series):
-        res = pd.DataFrame({
-            R.name or "Value": [ann_ret, ann_std, ann_sharpe]
-        })
+        res = pd.DataFrame({R.name or "Value": [ann_ret, ann_std, ann_sharpe]})
     else:
         res = pd.DataFrame([ann_ret, ann_std, ann_sharpe])
 
@@ -134,12 +130,13 @@ def table_annualized_returns(
 
     return res.round(digits)
 
+
 def table_capm(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
-    digits: int = 4
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    scale: int | None = None,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
+    digits: int = 4,
 ) -> pd.DataFrame:
     """
     Single Factor Asset-Pricing Model (CAPM) Summary Table.
@@ -202,10 +199,10 @@ def table_capm(
 
             # Use excess returns for correlation and R-squared
             corr, p_val = pearsonr(xRa, xRb)
-            r2 = corr ** 2
+            r2 = corr**2
 
             # Ann Alpha
-            ann_alpha = (1 + alpha)**scale - 1
+            ann_alpha = (1 + alpha) ** scale - 1
 
             # Beta+ / Beta- (Bull/Bear Beta)
             # R's CAPM.beta.bull: returns from Ra where excess benchmark return > 0
@@ -218,17 +215,22 @@ def table_capm(
             ir = information_ratio(merged.iloc[:, 0], merged.iloc[:, 1], scale=scale)
             tr = treynor_ratio(merged.iloc[:, 0], merged.iloc[:, 1], Rf=Rf, scale=scale)
 
-            row = [
-                alpha, beta, beta_plus, beta_minus,
-                r2, ann_alpha, corr, p_val,
-                te, ap, ir, tr
-            ]
+            row = [alpha, beta, beta_plus, beta_minus, r2, ann_alpha, corr, p_val, te, ap, ir, tr]
             results.append(row)
 
     znames = [
-        "Alpha", "Beta", "Beta+", "Beta-",
-        "R-squared", "Annualized Alpha", "Correlation", "Correlation p-value",
-        "Tracking Error", "Active Premium", "Information Ratio", "Treynor Ratio"
+        "Alpha",
+        "Beta",
+        "Beta+",
+        "Beta-",
+        "R-squared",
+        "Annualized Alpha",
+        "Correlation",
+        "Correlation p-value",
+        "Tracking Error",
+        "Active Premium",
+        "Information Ratio",
+        "Treynor Ratio",
     ]
 
     res_df = pd.DataFrame(results).T
@@ -243,13 +245,14 @@ def table_capm(
 
     return res_df.round(digits)
 
+
 def table_downside_risk(
-    R: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
-    MAR: float = 0.1/12.0,
+    R: pd.Series | pd.DataFrame,
+    scale: int | None = None,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
+    MAR: float = 0.1 / 12.0,
     p: float = 0.95,
-    digits: int = 4
+    digits: int = 4,
 ) -> pd.DataFrame:
     """
     Downside Risk Summary: Statistics and Stylized Facts.
@@ -312,7 +315,7 @@ def table_downside_risk(
             -var_historical(x, p=p),
             -es_historical(x, p=p),
             -var_modified(x, p=p),
-            -es_modified(x, p=p)
+            -es_modified(x, p=p),
         ]
         results.append(z)
 
@@ -320,14 +323,14 @@ def table_downside_risk(
         "Semi Deviation",
         "Gain Deviation",
         "Loss Deviation",
-        f"Downside Deviation (MAR={MAR*scale*100:.1f}%)",
-        f"Downside Deviation (Rf={rf_val*scale*100:.1f}%)",
+        f"Downside Deviation (MAR={MAR * scale * 100:.1f}%)",
+        f"Downside Deviation (Rf={rf_val * scale * 100:.1f}%)",
         "Downside Deviation (0%)",
         "Maximum Drawdown",
-        f"Historical VaR ({p*100:.0f}%)",
-        f"Historical ES ({p*100:.0f}%)",
-        f"Modified VaR ({p*100:.0f}%)",
-        f"Modified ES ({p*100:.0f}%)"
+        f"Historical VaR ({p * 100:.0f}%)",
+        f"Historical ES ({p * 100:.0f}%)",
+        f"Modified VaR ({p * 100:.0f}%)",
+        f"Modified ES ({p * 100:.0f}%)",
     ]
 
     res_df = pd.DataFrame(results).T
@@ -336,11 +339,8 @@ def table_downside_risk(
 
     return res_df.round(digits)
 
-def table_capture_ratios(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    digits: int = 4
-) -> pd.DataFrame:
+
+def table_capture_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
     r"""
     Up and Down Market Capture Ratio Table.
 
@@ -394,11 +394,8 @@ def table_capture_ratios(
     res_df = pd.DataFrame(results, index=ra_cols, columns=["Up Capture", "Down Capture"])
     return res_df.round(digits)
 
-def table_up_down_ratios(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    digits: int = 4
-) -> pd.DataFrame:
+
+def table_up_down_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
     """
     Up and Down Market Ratios Table.
 
@@ -445,11 +442,7 @@ def table_up_down_ratios(
                 metrics.append(val)
         results.append(metrics)
 
-    znames = [
-        "Up Capture", "Down Capture",
-        "Up Number", "Down Number",
-        "Up Percent", "Down Percent"
-    ]
+    znames = ["Up Capture", "Down Capture", "Up Number", "Down Number", "Up Percent", "Down Percent"]
 
     res_df = pd.DataFrame(results, index=ra_cols, columns=znames)
 
@@ -459,11 +452,9 @@ def table_up_down_ratios(
 
     return res_df.round(digits)
 
+
 def table_calendar_returns(
-    R: Union[pd.Series, pd.DataFrame],
-    digits: int = 1,
-    as_perc: bool = True,
-    geometric: bool = True
+    R: pd.Series | pd.DataFrame, digits: int = 1, as_perc: bool = True, geometric: bool = True
 ) -> pd.DataFrame:
     """
     Monthly and Calendar Year Return Table.
@@ -494,48 +485,57 @@ def table_calendar_returns(
         s = R
 
     s = s.dropna()
-    if s.empty: return pd.DataFrame()
+    if s.empty:
+        return pd.DataFrame()
 
     # Create Year x Month pivot
     df = s.to_frame()
-    df['Year'] = df.index.year
-    df['Month'] = df.index.month
+    df["Year"] = df.index.year
+    df["Month"] = df.index.month
 
     # Map month numbers to short names
     month_map = {
-        1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun',
-        7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+        1: "Jan",
+        2: "Feb",
+        3: "Mar",
+        4: "Apr",
+        5: "May",
+        6: "Jun",
+        7: "Jul",
+        8: "Aug",
+        9: "Sep",
+        10: "Oct",
+        11: "Nov",
+        12: "Dec",
     }
-    df['MonthName'] = df['Month'].map(month_map)
+    df["MonthName"] = df["Month"].map(month_map)
 
     # Pivot
-    pivot = df.pivot(index='Year', columns='MonthName', values=s.name or 'Returns')
+    pivot = df.pivot(index="Year", columns="MonthName", values=s.name or "Returns")
 
     # Reorder columns
-    ordered_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    ordered_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     # Ensure all months exist in columns for reindexing
     pivot = pivot.reindex(columns=ordered_months)
 
     # Calculate Year totals
     def _calc_year(row: pd.Series, geom: bool) -> float:
         vals = row.dropna()
-        if vals.empty: return np.nan
+        if vals.empty:
+            return np.nan
         if geom:
             return (1 + vals).prod() - 1
         else:
             return vals.sum()
 
     year_col = pivot.apply(_calc_year, axis=1, geom=geometric)
-    pivot[s.name or 'Returns'] = year_col
+    pivot[s.name or "Returns"] = year_col
 
     multiplier = 100.0 if as_perc else 1.0
     return (pivot * multiplier).round(digits)
 
-def table_higher_moments(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    digits: int = 4
-) -> pd.DataFrame:
+
+def table_higher_moments(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
     """
     Higher Moments Summary: Statistics and Stylized Facts (Co-Moments).
 
@@ -582,15 +582,12 @@ def table_higher_moments(
                 co_kurtosis(a, b),
                 beta_co_variance(a, b),
                 beta_co_skewness(a, b),
-                beta_co_kurtosis(a, b)
+                beta_co_kurtosis(a, b),
             ]
             results.append(row)
             col_names.append(f"{ra_col} to {rb_col}")
 
-    znames = [
-        "CoSkewness", "CoKurtosis", "Beta CoVariance",
-        "Beta CoSkewness", "Beta CoKurtosis"
-    ]
+    znames = ["CoSkewness", "CoKurtosis", "Beta CoVariance", "Beta CoSkewness", "Beta CoKurtosis"]
 
     res_df = pd.DataFrame(results).T
     res_df.index = znames
@@ -598,10 +595,8 @@ def table_higher_moments(
 
     return res_df.round(digits)
 
-def table_prob_skewness_kurtosis(
-    R: Union[pd.Series, pd.DataFrame],
-    digits: int = 4
-) -> pd.DataFrame:
+
+def table_prob_skewness_kurtosis(R: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
     """
     Summary table for univariate skewness and kurtosis methods.
 
@@ -642,14 +637,19 @@ def table_prob_skewness_kurtosis(
             kurtosis(x, method="fisher"),
             kurtosis(x, method="sample"),
             kurtosis(x, method="excess"),
-            kurtosis(x, method="sample_excess")
+            kurtosis(x, method="sample_excess"),
         ]
         results.append(row)
 
     znames = [
-        "Skewness (moment)", "Skewness (fisher)", "Skewness (sample)",
-        "Kurtosis (moment)", "Kurtosis (fisher)", "Kurtosis (sample)",
-        "Kurtosis (excess)", "Kurtosis (sample_excess)"
+        "Skewness (moment)",
+        "Skewness (fisher)",
+        "Skewness (sample)",
+        "Kurtosis (moment)",
+        "Kurtosis (fisher)",
+        "Kurtosis (sample)",
+        "Kurtosis (excess)",
+        "Kurtosis (sample_excess)",
     ]
 
     res_df = pd.DataFrame(results).T
@@ -658,11 +658,9 @@ def table_prob_skewness_kurtosis(
 
     return res_df.round(digits)
 
+
 def table_variability(
-    R: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    geometric: bool = True,
-    digits: int = 4
+    R: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True, digits: int = 4
 ) -> pd.DataFrame:
     """
     Variability Summary: Statistics and Stylized Facts.
@@ -718,12 +716,8 @@ def table_variability(
 
     return res_df.round(digits)
 
-def table_drawdowns(
-    R: pd.Series,
-    top: int = 5,
-    digits: int = 4,
-    geometric: bool = True
-) -> pd.DataFrame:
+
+def table_drawdowns(R: pd.Series, top: int = 5, digits: int = 4, geometric: bool = True) -> pd.DataFrame:
     """
     Worst Drawdowns Summary: Statistics and Stylized Facts.
 
@@ -792,23 +786,23 @@ def table_drawdowns(
             to_dates.append(idx[end_idx_0])
             recovery_periods.append(sorted_runs["recovery"][i])
 
-    result = pd.DataFrame({
-        "From": from_dates,
-        "Trough": trough_dates,
-        "To": to_dates,
-        "Depth": np.round(sorted_runs["return"][:top], digits),
-        "Length": sorted_runs["length"][:top],
-        "To Trough": sorted_runs["peaktotrough"][:top],
-        "Recovery": recovery_periods
-    })
+    result = pd.DataFrame(
+        {
+            "From": from_dates,
+            "Trough": trough_dates,
+            "To": to_dates,
+            "Depth": np.round(sorted_runs["return"][:top], digits),
+            "Length": sorted_runs["length"][:top],
+            "To Trough": sorted_runs["peaktotrough"][:top],
+            "Recovery": recovery_periods,
+        }
+    )
 
     return result
 
+
 def table_information_ratio(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    digits: int = 4
+    Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
     """
     Information Ratio Summary: Statistics and Stylized Facts.
@@ -847,7 +841,7 @@ def table_information_ratio(
     for col in ra_cols:
         # periodic tracking error
         # R: TrackingError(y[,column,drop=FALSE])/sqrt(scale)
-        te_periodic = tracking_error(ra_df[col], Rb, scale=1.0) # scale=1 for periodic
+        te_periodic = tracking_error(ra_df[col], Rb, scale=1.0)  # scale=1 for periodic
         te_annual = tracking_error(ra_df[col], Rb, scale=scale)
         ir = information_ratio(ra_df[col], Rb, scale=scale)
 
@@ -857,11 +851,12 @@ def table_information_ratio(
     res_df = pd.DataFrame(results, index=ra_cols, columns=znames).T
     return res_df.round(digits)
 
+
 def table_specific_risk(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    digits: int = 4
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0,
+    digits: int = 4,
 ) -> pd.DataFrame:
     """
     Specific risk Summary: Statistics and Stylized Facts
@@ -886,11 +881,9 @@ def table_specific_risk(
     res_df = pd.DataFrame(results, index=ra_cols, columns=znames).T
     return res_df.round(digits)
 
+
 def table_prob_sharpe_ratio(
-    R: Union[pd.Series, pd.DataFrame],
-    refSR: Union[float, list, np.ndarray] = 0.0,
-    Rf: float = 0.0,
-    digits: int = 4
+    R: pd.Series | pd.DataFrame, refSR: float | list | np.ndarray = 0.0, Rf: float = 0.0, digits: int = 4
 ) -> pd.DataFrame:
     """
     Summary table for Probabilistic Sharpe Ratio across different thresholds.
@@ -923,7 +916,6 @@ def table_prob_sharpe_ratio(
     else:
         ra_df = R
 
-
     final_results = []
     for rsr in refSR:
         row = prob_sharpe_ratio(ra_df, refSR=rsr, Rf=Rf)
@@ -933,11 +925,7 @@ def table_prob_sharpe_ratio(
     return res_df.round(digits)
 
 
-def table_autocorrelation(
-    R: Union[pd.Series, pd.DataFrame],
-    digits: int = 4,
-    max_lag: int = 6
-) -> pd.DataFrame:
+def table_autocorrelation(R: pd.Series | pd.DataFrame, digits: int = 4, max_lag: int = 6) -> pd.DataFrame:
     """
     Table for calculating the first six (default) autocorrelation coefficients and significance.
     Produces data table of autocorrelation coefficients rho and corresponding Q(max_lag)-statistic.
@@ -963,22 +951,19 @@ def table_autocorrelation(
 
         # Ljung-Box test
         lb = acorr_ljungbox(x, lags=[max_lag], return_df=True)
-        p_val = lb['lb_pvalue'].iloc[0]
+        p_val = lb["lb_pvalue"].iloc[0]
 
         row = list(rho) + [p_val]
         results.append(row)
 
-    znames = [f"rho {i+1}" for i in range(max_lag)] + [f"Q({max_lag}) p-value"]
+    znames = [f"rho {i + 1}" for i in range(max_lag)] + [f"Q({max_lag}) p-value"]
     res_df = pd.DataFrame(results, index=columns, columns=znames).T
 
     return res_df.round(digits)
 
 
 def table_correlation(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    digits: int = 4,
-    conf_level: float = 0.95
+    Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4, conf_level: float = 0.95
 ) -> pd.DataFrame:
     """
     Calculate correlations and significance of multicolumn data.
@@ -1038,12 +1023,12 @@ def table_correlation(
             # ucl = tanh(z + qnorm(1 - alpha/2) * stderr)
             if n > 3:
                 z = 0.5 * np.log((1 + corr) / (1 - corr))
-                t.ppf((1 + conf_level) / 2, n - 2) # R uses normal distribution for large n, but t is safer
+                t.ppf((1 + conf_level) / 2, n - 2)  # R uses normal distribution for large n, but t is safer
                 # Actually R's cor.test uses t for Pearson
                 # R: r * sqrt(df / (1 - r^2)) ~ t(df)
                 # For CI: Fisher's Z-transform
                 stderr = 1.0 / np.sqrt(n - 3)
-                z_crit_norm = -t.ppf((1 - conf_level) / 2, float('inf')) # Using normal for Z-transform
+                z_crit_norm = -t.ppf((1 - conf_level) / 2, float("inf"))  # Using normal for Z-transform
                 lower_z = z - z_crit_norm * stderr
                 upper_z = z + z_crit_norm * stderr
                 lower_r = np.tanh(lower_z)
@@ -1058,11 +1043,7 @@ def table_correlation(
     return res_df.round(digits)
 
 
-def table_distributions(
-    R: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None,
-    digits: int = 4
-) -> pd.DataFrame:
+def table_distributions(R: pd.Series | pd.DataFrame, scale: int | None = None, digits: int = 4) -> pd.DataFrame:
     """
     Distributions Summary: Statistics and Stylized Facts.
     Table of standard deviation, Skewness, Kurtosis, etc.
@@ -1096,13 +1077,17 @@ def table_distributions(
             kurtosis(x, method="moment"),
             kurtosis(x, method="excess"),
             skewness(x, method="sample"),
-            kurtosis(x, method="sample_excess")
+            kurtosis(x, method="sample_excess"),
         ]
         results.append(row)
 
     znames = [
-        f"{freq_str} Std Dev", "Skewness", "Kurtosis",
-        "Excess kurtosis", "Sample skewness", "Sample excess kurtosis"
+        f"{freq_str} Std Dev",
+        "Skewness",
+        "Kurtosis",
+        "Excess kurtosis",
+        "Sample skewness",
+        "Sample excess kurtosis",
     ]
     res_df = pd.DataFrame(results, index=columns, columns=znames).T
 
@@ -1110,10 +1095,7 @@ def table_distributions(
 
 
 def table_downside_risk_ratio(
-    R: Union[pd.Series, pd.DataFrame],
-    MAR: float = 0,
-    scale: Optional[int] = None,
-    digits: int = 4
+    R: pd.Series | pd.DataFrame, MAR: float = 0, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
     """
     Downside Risk Summary: Ratios and Metrics.
@@ -1169,22 +1151,18 @@ def table_downside_risk_ratio(
         upr = upside_potential_ratio(x, MAR=MAR)
         osr = omega_sharpe_ratio(x, MAR=MAR)
 
-        row = [
-            dd,
-            dd * np.sqrt(scale),
-            dp,
-            om,
-            sr,
-            up,
-            upr,
-            osr
-        ]
+        row = [dd, dd * np.sqrt(scale), dp, om, sr, up, upr, osr]
         results.append(row)
 
     znames = [
-        f"{freq_str} downside risk", "Annualised downside risk", "Downside potential",
-        "Omega", "Sortino ratio", "Upside potential", "Upside potential ratio",
-        "Omega-sharpe ratio"
+        f"{freq_str} downside risk",
+        "Annualised downside risk",
+        "Downside potential",
+        "Omega",
+        "Sortino ratio",
+        "Upside potential",
+        "Upside potential ratio",
+        "Omega-sharpe ratio",
     ]
     res_df = pd.DataFrame(results, index=columns, columns=znames).T
 
@@ -1192,10 +1170,7 @@ def table_downside_risk_ratio(
 
 
 def table_drawdowns_ratio(
-    R: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    scale: Optional[int] = None,
-    digits: int = 4
+    R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
     """
     Drawdowns Summary: Statistics and ratios.
@@ -1230,19 +1205,20 @@ def table_drawdowns_ratio(
         results.append(row)
 
     znames = [
-        "Sterling ratio", "Calmar ratio", "Burke ratio",
-        "Pain index", "Ulcer index", "Pain ratio", "Martin ratio"
+        "Sterling ratio",
+        "Calmar ratio",
+        "Burke ratio",
+        "Pain index",
+        "Ulcer index",
+        "Pain ratio",
+        "Martin ratio",
     ]
     res_df = pd.DataFrame(results, index=columns, columns=znames).T
 
     return res_df.round(digits)
 
 
-def table_stats(
-    R: Union[pd.Series, pd.DataFrame],
-    ci: float = 0.95,
-    digits: int = 4
-) -> pd.DataFrame:
+def table_stats(R: pd.Series | pd.DataFrame, ci: float = 0.95, digits: int = 4) -> pd.DataFrame:
     """
     Returns Summary: Statistics and Stylized Facts.
     R equivalent: table.Stats or table.MonthlyReturns.
@@ -1301,14 +1277,27 @@ def table_stats(
             var,
             sd,
             skewness(x),
-            kurtosis(x)
+            kurtosis(x),
         ]
         results.append(row)
 
     znames = [
-        "Observations", "NAs", "Minimum", "Quartile 1", "Median", "Arithmetic Mean",
-        "Geometric Mean", "Quartile 3", "Maximum", "SE Mean",
-        f"LCL Mean ({ci})", f"UCL Mean ({ci})", "Variance", "Stdev", "Skewness", "Kurtosis"
+        "Observations",
+        "NAs",
+        "Minimum",
+        "Quartile 1",
+        "Median",
+        "Arithmetic Mean",
+        "Geometric Mean",
+        "Quartile 3",
+        "Maximum",
+        "SE Mean",
+        f"LCL Mean ({ci})",
+        f"UCL Mean ({ci})",
+        "Variance",
+        "Stdev",
+        "Skewness",
+        "Kurtosis",
     ]
 
     res_df = pd.DataFrame(results, index=columns, columns=znames).T
@@ -1316,15 +1305,17 @@ def table_stats(
 
 
 def table_prob_outperformance(
-    R: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    period_lengths: list[int] = [1, 3, 6, 9, 12, 18, 36]
+    R: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    period_lengths: list[int] | None = None,
 ) -> pd.DataFrame:
     """
     Outperformance Report of Asset vs Benchmark.
     Returns a table that contains the counts and probabilities
     of outperformance relative to benchmark for the various period_lengths.
     """
+    if period_lengths is None:
+        period_lengths = [1, 3, 6, 9, 12, 18, 36]
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
@@ -1359,22 +1350,33 @@ def table_prob_outperformance(
         results.append([p_len, out, under, total, prob_out, prob_under])
 
     cols = [
-        "period_lengths", ra_col, rb_col, "total periods",
-        f"prob_{ra_col}_outperformance", f"prob_{rb_col}_outperformance"
+        "period_lengths",
+        ra_col,
+        rb_col,
+        "total periods",
+        f"prob_{ra_col}_outperformance",
+        f"prob_{rb_col}_outperformance",
     ]
     return pd.DataFrame(results, columns=cols)
 
 
 def table_rolling_periods(
-    R: Union[pd.Series, pd.DataFrame],
-    periods: list[int] = [12, 36, 60],
-    funcs: list[str] = ["mean", "sd"],
-    funcs_names: list[str] = ["Average", "Std Dev"],
-    digits: int = 4
+    R: pd.Series | pd.DataFrame,
+    periods: list[int] | None = None,
+    funcs: list[str] | None = None,
+    funcs_names: list[str] | None = None,
+    digits: int = 4,
 ) -> pd.DataFrame:
     """
     Rolling Periods Summary: Statistics and Stylized Facts.
     """
+    if periods is None:
+        periods = [12, 36, 60]
+    if funcs is None:
+        funcs = ["mean", "sd"]
+    if funcs_names is None:
+        funcs_names = ["Average", "Std Dev"]
+
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
@@ -1392,7 +1394,7 @@ def table_rolling_periods(
         "sd": lambda s: s.std(),
         "return_annualized": lambda s: return_annualized(s),
         "std_dev_annualized": lambda s: std_dev_annualized(s),
-        "sharpe_ratio": lambda s: sharpe_ratio(s)
+        "sharpe_ratio": lambda s: sharpe_ratio(s),
     }
 
     results = []

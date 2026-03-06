@@ -9,7 +9,7 @@ def test_active_metrics_managers(managers_data):
     r_results = {
         "TE": {"HAM1": 0.1131667, "HAM2": 0.1533647},
         "AP": {"HAM1": 0.04078668, "HAM2": 0.07759873},
-        "IR": {"HAM1": 0.3604125, "HAM2": 0.5059751}
+        "IR": {"HAM1": 0.3604125, "HAM2": 0.5059751},
     }
 
     ra = managers_data[["HAM1", "HAM2"]]

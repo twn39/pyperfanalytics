@@ -137,4 +137,5 @@ dev = [
     "ruff>=0.2.0",
     "scikit-learn>=1.0",
     "kaleido>=1.2.0",
+    "ty>=0.0.21",
 ]

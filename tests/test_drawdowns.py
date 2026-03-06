@@ -12,7 +12,7 @@ def test_table_drawdowns_ham1(managers_data):
         {"From": "2005-03-31", "Trough": "2005-04-30", "To": "2005-09-30", "Depth": -0.0412, "Length": 7},
     ]
 
-    ham1 = managers_data['HAM1']
+    ham1 = managers_data["HAM1"]
     py_table = table_drawdowns(ham1)
 
     for i, r_row in enumerate(r_results):

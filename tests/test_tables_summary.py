@@ -17,9 +17,9 @@ def test_table_capm(managers_data):
     # Information Ratio: 0.3604
     # Treynor Ratio: 0.2428
 
-    ra = managers_data['HAM1']
-    rb = managers_data['SP500 TR']
-    rf = managers_data['US 3m TR']
+    ra = managers_data["HAM1"]
+    rb = managers_data["SP500 TR"]
+    rf = managers_data["US 3m TR"]
 
     table = table_capm(ra, rb, Rf=rf)
 
@@ -36,6 +36,7 @@ def test_table_capm(managers_data):
     assert table.loc["Information Ratio", col] == pytest.approx(0.3604, abs=1e-4)
     assert table.loc["Treynor Ratio", col] == pytest.approx(0.2428, abs=1e-4)
 
+
 def test_table_downside_risk(managers_data):
     # Benchmark from R (HAM1):
     # Semi Deviation: 0.0191
@@ -47,11 +48,11 @@ def test_table_downside_risk(managers_data):
     # Modified VaR (95%): -0.0342
     # Modified ES (95%): -0.0610
 
-    ra = managers_data['HAM1']
-    rf = managers_data['US 3m TR']
+    ra = managers_data["HAM1"]
+    rf = managers_data["US 3m TR"]
 
     # Note: R benchmark uses MAR=0.1/12
-    table = table_downside_risk(ra, Rf=rf, MAR=0.1/12)
+    table = table_downside_risk(ra, Rf=rf, MAR=0.1 / 12)
 
     col = "HAM1"
     assert table.loc["Semi Deviation", col] == pytest.approx(0.0191, abs=1e-4)

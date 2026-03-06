@@ -13,6 +13,7 @@ def test_hurst_index():
     expected = pd.read_csv("tests/benchmarks/hurst_index.csv", index_col=0).iloc[0]
     pd.testing.assert_series_equal(actual, expected, check_names=False, atol=1e-4)
 
+
 def test_smoothing_index():
     m = pd.read_csv("data/managers.csv", index_col=0)
     m.index = pd.to_datetime(m.index)
@@ -22,6 +23,7 @@ def test_smoothing_index():
     expected = pd.read_csv("tests/benchmarks/smoothing_index.csv", index_col=0).iloc[0]
     pd.testing.assert_series_equal(actual, expected, check_names=False, atol=1e-2)
 
+
 def test_table_prob_outperformance():
     e = pd.read_csv("data/edhec.csv", index_col=0)
     e.index = pd.to_datetime(e.index)
@@ -29,10 +31,11 @@ def test_table_prob_outperformance():
     actual = pa.table_prob_outperformance(e.iloc[:, 0], e.iloc[:, 1])
     expected = pd.read_csv("tests/benchmarks/table_prob_outperformance.csv")
 
-    expected['period_lengths'] = expected['period_lengths'].astype(int)
+    expected["period_lengths"] = expected["period_lengths"].astype(int)
     actual.columns = expected.columns
 
     pd.testing.assert_frame_equal(actual, expected, atol=1e-4)
+
 
 def test_table_rolling_periods():
     e = pd.read_csv("data/edhec.csv", index_col=0)
@@ -43,6 +46,7 @@ def test_table_rolling_periods():
     expected = pd.read_csv("tests/benchmarks/table_rolling_periods.csv", index_col=0)
 
     pd.testing.assert_frame_equal(actual, expected, atol=1e-3)
+
 
 def test_to_period_contributions():
     contrib = pd.read_csv("tests/benchmarks/input_contribution.csv", index_col=0)

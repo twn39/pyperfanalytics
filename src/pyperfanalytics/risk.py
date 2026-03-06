@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -7,7 +5,7 @@ from scipy.stats import norm
 from pyperfanalytics.utils import _get_scale, centered_moment, kurtosis, skewness
 
 
-def var_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+def var_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Historical Value at Risk (VaR).
 
@@ -30,9 +28,11 @@ def var_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[
         Historical VaR value(s) (returned as positive values representing losses).
     """
     alpha = 1 - p if p >= 0.5 else p
+
     def _calc(s: pd.Series, a: float) -> float:
         s = s.dropna()
-        if len(s) == 0: return np.nan
+        if len(s) == 0:
+            return np.nan
         return -np.percentile(s, a * 100)
 
     if isinstance(R, pd.DataFrame):
@@ -40,7 +40,8 @@ def var_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[
     else:
         return _calc(R, alpha)
 
-def var_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+
+def var_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Gaussian (Parametric) Value at Risk (VaR).
 
@@ -68,7 +69,8 @@ def var_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[fl
     z = norm.ppf(alpha)
     return -mu - z * np.sqrt(m2)
 
-def var_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+
+def var_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Modified (Cornish-Fisher) Value at Risk (VaR).
 
@@ -100,14 +102,17 @@ def var_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[fl
     exkurt = kurtosis(R, method="excess")
 
     # Cornish-Fisher expansion for the z-score
-    h = (z +
-         (1/6.0) * (z**2 - 1.0) * skew +
-         (1/24.0) * (z**3 - 3.0*z) * exkurt -
-         (1/36.0) * (2.0*z**3 - 5.0*z) * skew**2)
+    h = (
+        z
+        + (1 / 6.0) * (z**2 - 1.0) * skew
+        + (1 / 24.0) * (z**3 - 3.0 * z) * exkurt
+        - (1 / 36.0) * (2.0 * z**3 - 5.0 * z) * skew**2
+    )
 
     return -mu - h * np.sqrt(m2)
 
-def es_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+
+def es_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Historical Expected Shortfall (Conditional VaR).
 
@@ -129,13 +134,15 @@ def es_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[f
         Historical Expected Shortfall.
     """
     alpha = 1 - p if p >= 0.5 else p
+
     def _calc(s: pd.Series, a: float) -> float:
         s = s.dropna()
-        if len(s) == 0: return np.nan
+        if len(s) == 0:
+            return np.nan
         q = np.percentile(s, a * 100)
         subset = s[s < q]
         if len(subset) == 0:
-            return -q # PA's fallback: if no values < VaR, ES = VaR
+            return -q  # PA's fallback: if no values < VaR, ES = VaR
         return -subset.mean()
 
     if isinstance(R, pd.DataFrame):
@@ -143,7 +150,8 @@ def es_historical(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[f
     else:
         return _calc(R, alpha)
 
-def es_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+
+def es_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Gaussian Expected Shortfall (Conditional VaR).
 
@@ -171,7 +179,8 @@ def es_gaussian(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[flo
     z = norm.ppf(alpha)
     return -mu + norm.pdf(z) * np.sqrt(m2) / alpha
 
-def es_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[float, pd.Series]:
+
+def es_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
     """
     Calculate Modified (Cornish-Fisher) Expected Shortfall.
 
@@ -201,25 +210,30 @@ def es_modified(R: Union[pd.Series, pd.DataFrame], p: float = 0.95) -> Union[flo
     exkurt = kurtosis(R, method="excess")
 
     # h as used in MES calculation in R code
-    h = (z + (1/6.0) * (z**2 - 1.0) * skew +
-         (1/24.0) * (z**3 - 3.0*z) * exkurt -
-         (1/36.0) * (2.0*z**3 - 5.0*z) * skew**2)
+    h = (
+        z
+        + (1 / 6.0) * (z**2 - 1.0) * skew
+        + (1 / 24.0) * (z**3 - 3.0 * z) * exkurt
+        - (1 / 36.0) * (2.0 * z**3 - 5.0 * z) * skew**2
+    )
 
     # E as defined in ES.CornishFisher in R code
-    E = (norm.pdf(h) * (
-        1.0 +
-        (h**3) * skew / 6.0 +
-        (h**6 - 9.0*h**4 + 9.0*h**2 + 3.0) * (skew**2) / 72.0 +
-        (h**4 - 2.0*h**2 - 1.0) * exkurt / 24.0
-    )) / alpha
+    E = (
+        norm.pdf(h)
+        * (
+            1.0
+            + (h**3) * skew / 6.0
+            + (h**6 - 9.0 * h**4 + 9.0 * h**2 + 3.0) * (skew**2) / 72.0
+            + (h**4 - 2.0 * h**2 - 1.0) * exkurt / 24.0
+        )
+    ) / alpha
 
     return -mu + np.sqrt(m2) * E
 
+
 def tracking_error(
-    R: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    R: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None
+) -> float | pd.Series | pd.DataFrame:
     r"""
     Calculate Tracking Error of returns against a benchmark.
 
@@ -290,11 +304,10 @@ def tracking_error(
     else:
         return res_df
 
+
 def capm_beta(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0
-) -> Union[float, pd.Series, pd.DataFrame]:
+    Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate CAPM Beta of returns against a benchmark.
 
@@ -371,7 +384,9 @@ def capm_beta(
         return res_df.iloc[0]
     else:
         return res_df
-def ulcer_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
+
+
+def ulcer_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     """
     Calculate the Ulcer Index.
 
@@ -393,11 +408,13 @@ def ulcer_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
         The Ulcer Index.
     """
     from pyperfanalytics.drawdowns import drawdown_peak
+
     dp = drawdown_peak(R)
 
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
-        if len(s) == 0: return np.nan
+        if len(s) == 0:
+            return np.nan
         return np.sqrt((s**2).mean())
 
     if isinstance(dp, pd.DataFrame):
@@ -405,7 +422,8 @@ def ulcer_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
     else:
         return _calc(dp)
 
-def pain_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
+
+def pain_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     """
     Calculate the Pain Index.
 
@@ -426,11 +444,13 @@ def pain_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
         The Pain Index.
     """
     from pyperfanalytics.drawdowns import drawdown_peak
+
     dp = drawdown_peak(R)
 
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
-        if len(s) == 0: return np.nan
+        if len(s) == 0:
+            return np.nan
         return np.abs(s).mean()
 
     if isinstance(dp, pd.DataFrame):
@@ -439,13 +459,12 @@ def pain_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
         return _calc(dp)
 
 
-
 def specific_risk(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0,
+    scale: int | None = None,
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate Specific Risk.
 
@@ -524,7 +543,7 @@ def specific_risk(
 
             # result = sqrt(sum((epsilon - mean(epsilon))^2)/length(epsilon))*sqrt(Period)
             # This is essentially population SD of epsilon * sqrt(scale)
-            spec_risk = np.sqrt((epsilon**2).mean() - (epsilon.mean())**2) * np.sqrt(scale)
+            spec_risk = np.sqrt((epsilon**2).mean() - (epsilon.mean()) ** 2) * np.sqrt(scale)
             col_results.append(spec_risk)
         results.append(col_results)
 
@@ -537,12 +556,13 @@ def specific_risk(
     else:
         return res_df
 
+
 def total_risk(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0,
+    scale: int | None = None,
+) -> float | pd.Series | pd.DataFrame:
     r"""
     Calculate Total Risk (Systematic + Specific).
 
@@ -570,7 +590,6 @@ def total_risk(
     """
     if scale is None:
         scale = _get_scale(Ra)
-
 
     # Standardize inputs
     if isinstance(Ra, pd.Series):
@@ -618,7 +637,8 @@ def total_risk(
     else:
         return res_df
 
-def herfindahl_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Series]:
+
+def herfindahl_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     """
     Calculate Herfindahl Index based on autocorrelation.
 
@@ -649,6 +669,7 @@ def herfindahl_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Serie
         # Calculate ACF
         # PerformanceAnalytics uses R's acf default lag.max = 10 * log10(N/m)
         import math
+
         nlags = int(10 * math.log10(len(s)))
         nlags = min(len(s) - 1, max(1, nlags))
 
@@ -669,11 +690,7 @@ def herfindahl_index(R: Union[pd.Series, pd.DataFrame]) -> Union[float, pd.Serie
         return _calc(R)
 
 
-def smoothing_index(
-    R: Union[pd.Series, pd.DataFrame],
-    neg_thetas: bool = False,
-    MAorder: int = 2
-) -> Union[float, pd.Series]:
+def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAorder: int = 2) -> float | pd.Series:
     r"""
     Calculate Normalized Getmansky Smoothing Index.
 
@@ -702,7 +719,7 @@ def smoothing_index(
 
     def _calc(s: pd.Series, neg: bool, order: int) -> float:
         s = s.dropna()
-        if len(s) < order + 5: # Need enough data for ARIMA
+        if len(s) < order + 5:  # Need enough data for ARIMA
             return np.nan
 
         try:
@@ -713,13 +730,13 @@ def smoothing_index(
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=ValueWarning)
                 # R arima(..., include.mean=FALSE)
-                model = ARIMA(s, order=(0, 0, order), enforce_invertibility=True, trend='n')
+                model = ARIMA(s, order=(0, 0, order), enforce_invertibility=True, trend="n")
                 res = model.fit()
 
             # statsmodels params for MA components are 'ma.L1', 'ma.L2'...
             ma_params = []
             for i in range(1, order + 1):
-                name = f'ma.L{i}'
+                name = f"ma.L{i}"
                 if name in res.params:
                     ma_params.append(res.params[name])
                 else:
@@ -740,11 +757,10 @@ def smoothing_index(
     else:
         return _calc(R, neg_thetas, MAorder)
 
+
 def fama_beta(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate Fama Beta.
 
@@ -817,13 +833,14 @@ def fama_beta(
     else:
         return res_df
 
+
 def cdar_beta(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     p: float = 0.95,
     geometric: bool = True,
-    type: Optional[str] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    type: str | None = None,
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate Conditional Drawdown Beta (CDaR Beta).
 
@@ -854,9 +871,9 @@ def cdar_beta(
     from pyperfanalytics.drawdowns import cdd, find_drawdowns
 
     if type == "average":
-        p = 1.0 # Will be 1-p = 0
+        p = 1.0  # Will be 1-p = 0
     elif type == "max":
-        p = 0.0 # Will be 1-p = 1
+        p = 0.0  # Will be 1-p = 1
 
     p_use = 1.0 - p
 
@@ -933,7 +950,7 @@ def cdar_beta(
                 start = from_a[idx]
                 end = trough_a[idx]
                 # inclusive range
-                temp_r = a.iloc[start:end+1]
+                temp_r = a.iloc[start : end + 1]
                 if geometric:
                     cumul_r = (1 + temp_r).prod() - 1
                 else:
@@ -955,14 +972,15 @@ def cdar_beta(
     else:
         return res_df
 
+
 def cdar_alpha(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
     p: float = 0.95,
     geometric: bool = True,
-    type: Optional[str] = None,
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    type: str | None = None,
+    scale: int | None = None,
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate Conditional Drawdown Alpha (CDaR Alpha).
 
@@ -1021,8 +1039,8 @@ def cdar_alpha(
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
 
-            rm_exp = (1 + b.mean())**scale - 1
-            ra_exp = (1 + a.mean())**scale - 1
+            rm_exp = (1 + b.mean()) ** scale - 1
+            ra_exp = (1 + a.mean()) ** scale - 1
 
             if isinstance(beta, pd.DataFrame):
                 b_val = beta.loc[rb_col, ra_col]
@@ -1045,14 +1063,15 @@ def cdar_alpha(
     else:
         return res_df
 
+
 def min_track_record(
-    R: Union[pd.Series, pd.DataFrame],
+    R: pd.Series | pd.DataFrame,
     refSR: float,
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0.0,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
     p: float = 0.95,
     ignore_skewness: bool = False,
-    ignore_kurtosis: bool = True
-) -> Union[dict, pd.DataFrame]:
+    ignore_kurtosis: bool = True,
+) -> dict | pd.DataFrame:
     """
     Calculate the Minimum Track Record Length.
 
@@ -1102,7 +1121,7 @@ def min_track_record(
         s = r_df[col].dropna()
         n = len(s)
 
-        sr = sharpe_ratio(s, Rf=Rf, annualize=False) # R's MinTrackRecord expects periodic sr
+        sr = sharpe_ratio(s, Rf=Rf, annualize=False)  # R's MinTrackRecord expects periodic sr
         sk = 0.0 if ignore_skewness else skewness(s)
         kr = 3.0 if ignore_kurtosis else kurtosis(s, method="moment")
 
@@ -1111,7 +1130,7 @@ def min_track_record(
             mtr = np.nan
         else:
             q = norm.ppf(p)
-            mtr = 1 + (1 - sk*sr + ((kr-1)/4)*sr**2) * (q / (sr - refSR))**2
+            mtr = 1 + (1 - sk * sr + ((kr - 1) / 4) * sr**2) * (q / (sr - refSR)) ** 2
 
         min_trl.append(mtr)
         if np.isnan(mtr):
@@ -1122,22 +1141,21 @@ def min_track_record(
             extra = max(0, np.ceil(mtr - n))
             extra_obs.append(extra)
 
-    res = pd.DataFrame({
-        "min_TRL": min_trl,
-        "IS_SR_SIGNIFICANT": is_sig,
-        "num_of_extra_obs_needed": extra_obs
-    }, index=cols).T
+    res = pd.DataFrame(
+        {"min_TRL": min_trl, "IS_SR_SIGNIFICANT": is_sig, "num_of_extra_obs_needed": extra_obs}, index=cols
+    ).T
 
     if len(cols) == 1:
         return res.iloc[:, 0].to_dict()
     return res
 
+
 def systematic_risk(
-    Ra: Union[pd.Series, pd.DataFrame],
-    Rb: Union[pd.Series, pd.DataFrame],
-    Rf: Union[float, pd.Series, pd.DataFrame] = 0,
-    scale: Optional[int] = None
-) -> Union[float, pd.Series, pd.DataFrame]:
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0,
+    scale: int | None = None,
+) -> float | pd.Series | pd.DataFrame:
     """
     Calculate Systematic Risk.
 
@@ -1210,4 +1228,3 @@ def systematic_risk(
         return res_df.iloc[:, 0]
     else:
         return res_df
-
