@@ -1,13 +1,13 @@
 [project]
 name = "pyperfanalytics"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python port of R PerformanceAnalytics package using pandas, numpy, and statsmodels"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 license = { text = "GPL v2+" } # Common for ports of R packages
 keywords = ["finance", "performance", "risk", "analytics", "portfolio", "returns"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
     "Programming Language :: Python :: 3.11",
