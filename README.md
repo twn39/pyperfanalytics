@@ -6,8 +6,8 @@
 [![PyPI Version](https://img.shields.io/pypi/v/pyperfanalytics.svg)](https://pypi.org/project/pyperfanalytics/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/pyperfanalytics.svg)](https://pypi.org/project/pyperfanalytics/)
 [![Python Version](https://img.shields.io/badge/python-3.11--3.14-blue.svg)](https://www.python.org/)
-[![R Compatibility](https://img.shields.io/badge/R--Compatibility-100%25-green.svg)](#verification)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#verification)
+[![R Compatibility](https://img.shields.io/badge/R--Compatibility-100%25-green.svg)](https://github.com/twn39/pyperfanalytics/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/twn39/pyperfanalytics/actions/workflows/test.yml)
 
 PyPerfAnalytics is a Python port of the popular R package `PerformanceAnalytics`. It provides a collection of functions for performance and risk analysis of financial portfolios.
 
