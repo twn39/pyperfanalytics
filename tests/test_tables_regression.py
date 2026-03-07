@@ -55,7 +55,7 @@ def tables_bench():
 @pytest.fixture(scope="module")
 def managers():
     """Load managers 1996–2006, matching the R export."""
-    path = "third_party/PerformanceAnalytics/data/managers.csv"
+    path = "data/managers.csv"
     df = pd.read_csv(path, index_col=0)
     df.index = pd.to_datetime(df.index)
     return df["1996":"2006"]

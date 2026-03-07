@@ -7,7 +7,7 @@ import pytest
 @pytest.fixture
 def edhec_data():
     """Fixture to load EDHEC risk managers data."""
-    path = "third_party/PerformanceAnalytics/data/edhec.csv"
+    path = "data/edhec.csv"
     data = pd.read_csv(path, index_col=0)
     data.index = pd.to_datetime(data.index)
     return data
@@ -16,7 +16,7 @@ def edhec_data():
 @pytest.fixture
 def managers_data():
     """Fixture to load Portfolio Managers data."""
-    path = "third_party/PerformanceAnalytics/data/managers.csv"
+    path = "data/managers.csv"
     data = pd.read_csv(path, index_col=0)
     data.index = pd.to_datetime(data.index)
     return data

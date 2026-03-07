@@ -25,7 +25,7 @@ def test_smoothing_index():
 
 
 def test_table_prob_outperformance():
-    e = pd.read_csv("data/edhec.csv", index_col=0)
+    e = pd.read_csv("data/edhec_v2.csv", index_col=0)
     e.index = pd.to_datetime(e.index)
 
     actual = pa.table_prob_outperformance(e.iloc[:, 0], e.iloc[:, 1])
@@ -38,7 +38,7 @@ def test_table_prob_outperformance():
 
 
 def test_table_rolling_periods():
-    e = pd.read_csv("data/edhec.csv", index_col=0)
+    e = pd.read_csv("data/edhec_v2.csv", index_col=0)
     e.index = pd.to_datetime(e.index)
     selected = e.columns[:6]
 

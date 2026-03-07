@@ -55,7 +55,7 @@ def test_burke_ratio_corrected():
     # New paper-correct values (Burke 1994 definition with RMS denominator):
     #   Burke Ratio = 2.000773, Modified Burke Ratio = 9.801745
     # Supersedes old values: Burke=0.756221, ModBurke=3.704711 (were based on sqrt(sum) form)
-    pb = pd.read_csv("third_party/PerformanceAnalytics/data/portfolio_bacon.csv", index_col=0)
+    pb = pd.read_csv("data/portfolio_bacon.csv", index_col=0)
     col1 = pb.iloc[:, 0]
 
     b_ratio = burke_ratio(col1, scale=12)
