@@ -39,9 +39,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 exclude = [
-    "data",
-    "scripts",
-    "tests",
     "third_party",
     "AGENTS.md",
 ]
