@@ -1,5 +1,0 @@
-library(PerformanceAnalytics)
-data(managers)
-data(edhec)
-write.csv(as.data.frame(managers), "data/managers.csv")
-write.csv(as.data.frame(edhec), "data/edhec.csv")
