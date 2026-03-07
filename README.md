@@ -5,7 +5,7 @@
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![PyPI Version](https://img.shields.io/pypi/v/pyperfanalytics.svg)](https://pypi.org/project/pyperfanalytics/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/pyperfanalytics.svg)](https://pypi.org/project/pyperfanalytics/)
-[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.11--3.14-blue.svg)](https://www.python.org/)
 [![R Compatibility](https://img.shields.io/badge/R--Compatibility-100%25-green.svg)](#verification)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#verification)
 
