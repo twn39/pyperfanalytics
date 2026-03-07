@@ -17,6 +17,30 @@ def chart_cum_returns(
 ) -> go.Figure:
     """
     Create a cumulative returns chart using Plotly.
+
+    Matches R's `chart.CumReturns` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    wealth_index : bool, default False
+        If True, the series starts at $1. If False, starts at $0.
+    geometric : bool, default True
+        If True, uses geometric compounding (1+R). If False, uses arithmetic (sum).
+    begin : str, default "axis"
+        Not fully implemented. In R, determines if the chart starts at the first value or axis.
+    title : str, default "Cumulative Returns"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -64,7 +88,25 @@ def chart_bar_returns(
     R: pd.Series | pd.DataFrame, title: str = "Returns", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
     """
-    Create a bar chart of period returns. Uses 'overlay' mode to maintain bar thickness.
+    Create a bar chart of period returns.
+
+    Matches R's `chart.Bar` logic. Uses 'overlay' mode to maintain bar thickness.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    title : str, default "Returns"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -101,12 +143,32 @@ def chart_bar_returns(
 def chart_drawdown(
     R: pd.Series | pd.DataFrame,
     geometric: bool = True,
-    title: str = "Drawdown",
+    title: str = "Drawdown (Underwater)",
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
     """
-    Create a drawdown (underwater) chart.
+    Create a professional drawdown (underwater) chart showing losses from peak.
+
+    Matches R's `chart.Drawdown` logic with enhanced interactive styling.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    geometric : bool, default True
+        If True, uses geometric compounding for drawdown calculation.
+    title : str, default "Drawdown (Underwater)"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces. If None, uses a professional semantic palette.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with semi-transparent area fill.
     """
     dd = drawdowns(R, geometric=geometric)
     if isinstance(dd, pd.Series):
@@ -114,9 +176,25 @@ def chart_drawdown(
 
     fig = go.Figure()
 
+    # Standard Project Palette (Plotly defaults)
+    # Using semi-transparent RGBA for "lake" overlaps to maintain professional feel
+    default_colors_hex = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"]
+    
+    def hex_to_rgba(hex_val, alpha):
+        hex_val = hex_val.lstrip('#')
+        lv = len(hex_val)
+        rgb = tuple(int(hex_val[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+        return f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {alpha})"
+
+    default_colors = [hex_to_rgba(c, 0.7) for c in default_colors_hex]
+    line_colors = default_colors_hex
+    
+    colors = colorset if colorset else default_colors
+
     for i, col in enumerate(dd.columns):
         series = dd[col].dropna()
-        color = colorset[i % len(colorset)] if colorset else None
+        color = colors[i % len(colors)]
+        line_color = line_colors[i % len(line_colors)] if not colorset else color
 
         fig.add_trace(
             go.Scatter(
@@ -124,12 +202,49 @@ def chart_drawdown(
                 y=series.values,
                 mode="lines",
                 name=col,
-                fill="tozeroy",  # Fill area to zero
-                line=dict(color=color),
+                fill="tozeroy",
+                line=dict(color=line_color, width=1.5),
+                fillcolor=color,
+                hovertemplate=f"<b>{col}</b><br>Date: %{{x}}<br>Drawdown: %{{y:.2%}}<extra></extra>",
             )
         )
 
-    fig.update_layout(title=title, xaxis_title="Date", yaxis_title="Drawdown", template="plotly_white")
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=20, color="#2C2B2A")
+        ),
+        xaxis_title="Date",
+        yaxis_title="Drawdown (%)",
+        template="plotly_white",
+        hovermode="x unified",
+        margin=dict(l=60, r=40, t=80, b=60),
+        yaxis=dict(
+            tickformat=".1%",
+            zeroline=True,
+            zerolinecolor="#2C2B2A", # High-Water Mark line (Black/Dark Gray)
+            zerolinewidth=2,
+            gridcolor="#ECEBEA", # Subtle light gray grid
+            showgrid=True,
+            ticksuffix=" ",
+            range=[min(dd.min().min() * 1.1, -0.05), 0.01] # Ensure space for labels and peaks
+        ),
+        xaxis=dict(
+            gridcolor="#ECEBEA",
+            showgrid=True,
+            linecolor="#2C2B2A"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(255, 255, 255, 0)"
+        ),
+    )
 
     return fig
 
@@ -143,8 +258,29 @@ def charts_performance_summary(
     **kwargs,
 ) -> go.Figure:
     """
-    Create a combined chart with Cumulative Returns, Daily Returns, and Drawdown.
-    Equivalent to R's charts.PerformanceSummary.
+    Create a combined dashboard containing Cumulative Returns, Period Returns, and Drawdown.
+
+    Matches R's `charts.PerformanceSummary` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    geometric : bool, default True
+        If True, uses geometric compounding.
+    wealth_index : bool, default False
+        If True, cumulative returns start at $1. If False, start at $0.
+    main : str, optional
+        Title for the dashboard.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with 3 subplots.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -237,8 +373,37 @@ def chart_bar_var(
     **kwargs,
 ) -> go.Figure:
     """
-    Plot periodic returns as a bar chart with a risk metric overlay.
-    Matches PerformanceAnalytics style with interactive Plotly overlays.
+    Plot periodic returns as a bar chart with interactive risk metric overlays.
+
+    Matches R's `chart.BarVaR` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    width : int, default 0
+        Window width for rolling calculation. If 0, an expanding window is used.
+    gap : int, default 12
+        Minimum number of periods before the first risk value is calculated.
+    methods : str or list[str], optional
+        List of risk metrics (e.g., ["ModifiedVaR", "GaussianVaR"]).
+    p : float, default 0.95
+        Confidence level for risk calculation.
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    show_symmetric : bool, default False
+        If True, plots the upper-tail threshold (symmetric around zero).
+    show_horizontal : bool, default False
+        If True, adds a horizontal line at the latest risk value.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with bar returns and risk metric line overlays.
     """
     if methods is None:
         methods = ["ModifiedVaR", "GaussianVaR"]
@@ -368,7 +533,29 @@ def chart_rolling_performance(
     **kwargs,
 ) -> go.Figure:
     """
-    Wrapper to create a chart of rolling performance metrics in a line chart.
+    Wrapper to chart any performance metric over a rolling window.
+
+    Matches R's `chart.RollingPerformance` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    width : int, default 12
+        Rolling window size.
+    FUN : str, default "return_annualized"
+        Name of the function to apply over the rolling window.
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to the `FUN` function or Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with time-series line chart.
     """
     import pyperfanalytics as pa
 
@@ -418,8 +605,28 @@ def chart_var_sensitivity(
     **kwargs,
 ) -> go.Figure:
     """
-    Create a chart of Value-at-Risk and Expected Shortfall estimates by confidence interval.
-    Matches PerformanceAnalytics style: shows negative return values (downward sloping).
+    Create a chart of VaR and ES estimates across a range of confidence levels.
+
+    Matches R's `chart.VaRSensitivity` logic. Shows how risk estimates change
+    between 89% and 99% confidence levels.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets. Only the first column is used if a DataFrame is passed.
+    methods : list[str], optional
+        List of risk metrics to plot (e.g., ["GaussianVaR", "ModifiedVaR"]).
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object showing risk metrics vs. confidence level.
     """
     if methods is None:
         methods = ["GaussianVaR", "ModifiedVaR", "HistoricalVaR", "GaussianES", "ModifiedES", "HistoricalES"]
@@ -495,6 +702,30 @@ def chart_histogram(
 ) -> go.Figure:
     """
     Create a histogram of returns with optional curve fits and risk markers.
+
+    Matches R's `chart.Histogram` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets. Only the first column is used if a DataFrame is passed.
+    breaks : int, default 30
+        Number of bins for the histogram.
+    methods : list[str], optional
+        Overlay types to add: "add.density", "add.normal", "add.risk".
+    p : float, default 0.95
+        Confidence level for risk markers.
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the histogram and overlays.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with histogram and optional line/marker overlays.
     """
     if methods is None:
         methods = ["add.density", "add.normal", "add.risk"]
@@ -591,7 +822,29 @@ def chart_boxplot(
     **kwargs,
 ) -> go.Figure:
     """
-    Create an aesthetically enhanced horizontal box and whiskers plot.
+    Create a horizontal box and whiskers plot to compare return distributions.
+
+    Matches R's `chart.Boxplot` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    sort_by : str, optional
+        Sort assets by "mean", "median", or "variance".
+    sort_ascending : bool, default True
+        If True, sorts in ascending order.
+    main : str, default "Return Distribution Comparison"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the boxes.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with horizontal box plots and outlier markers.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -647,7 +900,23 @@ def chart_boxplot(
 
 def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs) -> go.Figure:
     """
-    Create an aesthetically enhanced Q-Q plot with confidence bands.
+    Create a Quantile-Quantile plot with a normal reference and confidence bands.
+
+    Matches R's `chart.QQPlot` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets. Only the first column is used if a DataFrame is passed.
+    main : str, optional
+        Chart title.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with scatter plot, reference line, and shaded confidence area.
     """
     from scipy import stats
 
@@ -718,13 +987,30 @@ def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs)
 
 
 def chart_correlation(
-    R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs
-) -> go.Figure:
+    R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs) -> go.Figure:
     """
-    Visualization of a Correlation Matrix matching PerformanceAnalytics style.
-    - Diagonal: Histogram + KDE
-    - Lower Triangle: Scatter Plot + Linear Fit
-    - Upper Triangle: Correlation Coefficient (text)
+    Visualization of a Correlation Matrix with distributions and scatter plots.
+
+    Matches R's `chart.Correlation` logic.
+    - Diagonal: Histogram + Density.
+    - Lower Triangle: Scatter plots with linear regression lines.
+    - Upper Triangle: Correlation coefficients with significance stars.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    main : str, default "Correlation Matrix"
+        Chart title.
+    method : str, default "pearson"
+        Correlation method (passed to `pearsonr` or similar).
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with N x N subplots.
     """
     import numpy as np
     from scipy.stats import gaussian_kde, pearsonr
@@ -842,7 +1128,29 @@ def chart_rolling_correlation(
     **kwargs,
 ) -> go.Figure:
     """
-    Chart of rolling correlation between two assets or sets of assets.
+    Chart of rolling correlation between two sets of assets.
+
+    Matches R's `chart.RollingCorrelation` logic.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Returns of first set of assets.
+    Rb : pd.Series or pd.DataFrame
+        Returns of second set of assets (often a benchmark).
+    width : int, default 12
+        Rolling window size.
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object showing multi-line chart of pairwise correlations.
     """
     if isinstance(Ra, pd.Series):
         Ra = Ra.to_frame()
@@ -891,7 +1199,33 @@ def chart_risk_return_scatter(
     **kwargs,
 ) -> go.Figure:
     """
-    Create a risk-return scatter plot matching PerformanceAnalytics style.
+    Create a risk-return scatter plot with Sharpe ratio indifference lines.
+
+    Matches R's `chart.RiskReturnScatter` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    Rf : float, default 0.0
+        Risk-free rate for the Sharpe ratio lines intercept.
+    scale : int, optional
+        Annualization scale. If None, it is inferred from the data.
+    geometric : bool, default True
+        If True, uses geometric compounding for annualization.
+    add_sharpe : list[float], optional
+        List of Sharpe ratio values to draw as reference lines. Defaults to [1, 2, 3].
+    main : str, default "Annualized Return and Risk"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the assets.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with labeled scatter plot and reference lines.
     """
     if add_sharpe is None:
         add_sharpe = [1, 2, 3]
@@ -1024,9 +1358,28 @@ def chart_relative_performance(
     **kwargs,
 ) -> go.Figure:
     """
-    Plots a time series chart that shows the ratio of the cumulative performance
-    for two assets at each point in time.
-    Ratio = cumprod(1+Ra) / cumprod(1+Rb)
+    Plot the ratio of cumulative performance between two assets over time.
+
+    Matches R's `chart.RelativePerformance` logic. Values > 1 indicate outperformance
+    of the first asset (Ra) relative to the second (Rb).
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Returns of first asset(s).
+    Rb : pd.Series or pd.DataFrame
+        Returns of second asset(s) (benchmark).
+    main : str, default "Relative Performance"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with the relative performance ratio chart.
     """
     if isinstance(Ra, pd.Series):
         Ra = Ra.to_frame()
@@ -1074,9 +1427,27 @@ def chart_capture_ratios(
     **kwargs,
 ) -> go.Figure:
     """
-    Scatter plot of Up Capture versus Down Capture against a benchmark.
-    X-axis: Downside Capture
-    Y-axis: Upside Capture
+    Scatter plot of Upside Capture versus Downside Capture against a benchmark.
+
+    Matches R's `chart.CaptureRatios` logic.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Returns of asset(s).
+    Rb : pd.Series or pd.DataFrame
+        Returns of a benchmark asset (only the first column is used).
+    main : str, default "Capture Ratio"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the assets.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with (1,1) benchmark crosshairs.
     """
     from pyperfanalytics.returns import down_capture, up_capture
 
@@ -1190,7 +1561,33 @@ def chart_rolling_regression(
     **kwargs,
 ) -> go.Figure:
     """
-    Chart of rolling regression performance (Alpha, Beta, or R-Squared).
+    Chart of rolling regression performance metrics (Alpha, Beta, or R-Squared).
+
+    Matches R's `chart.RollingRegression` logic.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Returns of asset(s).
+    Rb : pd.Series or pd.DataFrame
+        Returns of benchmark(s).
+    width : int, default 12
+        Rolling window size.
+    Rf : float or pd.Series or pd.DataFrame, default 0.0
+        Risk-free rate.
+    attribute : str, default "Beta"
+        Regression metric to plot: "Alpha", "Beta", or "R-Squared".
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with rolling regression metric.
     """
     from scipy import stats
 
@@ -1262,7 +1659,31 @@ def charts_rolling_regression(
     **kwargs,
 ) -> go.Figure:
     """
-    Dashboard with Alpha, Beta, and R-Squared rolling regression charts.
+    Dashboard with Rolling Alpha, Rolling Beta, and Rolling R-Squared charts.
+
+    Matches R's `charts.RollingRegression` logic.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Returns of asset(s).
+    Rb : pd.Series or pd.DataFrame
+        Returns of benchmark(s).
+    width : int, default 12
+        Rolling window size.
+    Rf : float or pd.Series or pd.DataFrame, default 0.0
+        Risk-free rate.
+    main : str, default "Rolling Regression Summary"
+        Dashboard title.
+    colorset : list[str], optional
+        List of colors for the traces.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with 3 subplots (Alpha, Beta, R-Squared).
     """
     fig = make_subplots(
         rows=3,
@@ -1302,6 +1723,24 @@ def charts_rolling_regression(
 def chart_acf(R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str | None = None, **kwargs) -> go.Figure:
     """
     Create an Autocorrelation Function (ACF) chart.
+
+    Matches R's `chart.ACF` logic (often called via `chart.ACFplus`).
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets. Only the first column is used if a DataFrame is passed.
+    maxlag : int, optional
+        Maximum number of lags to display. If None, it is calculated based on sample size.
+    main : str, optional
+        Chart title.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with ACF bars and confidence interval lines.
     """
     from statsmodels.tsa.stattools import acf
 
@@ -1345,6 +1784,24 @@ def chart_acf_plus(
 ) -> go.Figure:
     """
     Create a chart with both ACF and PACF subplots.
+
+    Matches R's `chart.ACFplus` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets. Only the first column is used if a DataFrame is passed.
+    maxlag : int, optional
+        Maximum number of lags to display. If None, it is calculated based on sample size.
+    main : str, optional
+        Chart title.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with 2 subplots (ACF and PACF).
     """
     from statsmodels.tsa.stattools import acf, pacf
 
@@ -1403,7 +1860,31 @@ def chart_events(
 ) -> go.Figure:
     """
     Plots a time series with event dates aligned.
-    Relative X-axis shows periods before/after event.
+
+    Relative X-axis shows periods before and after the event. 
+    Matches R's `chart.Events` logic.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns or price series. Only the first column is used.
+    dates : list of str or pd.Timestamp
+        List of event dates to align.
+    prior : int, default 12
+        Number of periods to show before each event.
+    post : int, default 12
+        Number of periods to show after each event.
+    main : str, optional
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the event lines.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object with aligned event traces.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -1479,6 +1960,36 @@ def chart_snail_trail(
 ) -> go.Figure:
     """
     Create a snail trail chart showing rolling risk-return evolution.
+
+    Matches R's `chart.SnailTrail`.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of assets.
+    Rf : float, default 0.0
+        Risk-free rate for Sharpe ratio line calculation.
+    width : int, default 12
+        Rolling window width for annualized return and risk.
+    stepsize : int, default 12
+        Periods between trail markers.
+    scale : int, optional
+        Periods per year (e.g., 252 for daily).
+    geometric : bool, default True
+        If True, use geometric compounding.
+    main : str, default "Annualized Return and Risk Trail"
+        Chart title.
+    add_sharpe : list[float], optional
+        Sharpe ratio reference lines to add (default [1, 2, 3]).
+    colorset : list[str], optional
+        List of colors for asset trails.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object showing risk-return trails.
     """
     if add_sharpe is None:
         add_sharpe = [1, 2, 3]
@@ -1590,7 +2101,25 @@ def chart_stacked_bar(
     w: pd.Series | pd.DataFrame, main: str = "Stacked Bar Chart", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
     """
-    Create a stacked bar plot (commonly for weights or contributions).
+    Create a stacked bar plot.
+
+    Commonly used for weights or contributions. Matches R's `chart.StackedBar`.
+
+    Parameters
+    ----------
+    w : pd.Series or pd.DataFrame
+        Values to stack (e.g., weights or return contributions).
+    main : str, default "Stacked Bar Chart"
+        Chart title.
+    colorset : list[str], optional
+        List of colors for the stacks.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     if isinstance(w, pd.Series):
         w = w.to_frame()
@@ -1621,6 +2150,24 @@ def chart_component_returns(
 ) -> go.Figure:
     """
     Plots the contribution of each asset to the portfolio return.
+
+    Contribution is calculated as $R_i \times W_i$. Matches R's `chart.ComponentReturns`.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of component assets.
+    weights : array-like, optional
+        Weights of each asset. Defaults to equal weights.
+    main : str, default "Component Returns Contribution"
+        Chart title.
+    **kwargs
+        Additional arguments passed to `chart_stacked_bar`.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     if isinstance(R, pd.Series):
         R = R.to_frame()
@@ -1644,6 +2191,28 @@ def chart_ecdf(
 ) -> go.Figure:
     """
     Create an aesthetically enhanced ECDF chart overlaid with a normal CDF.
+
+    Matches R's `chart.ECDF`.
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Returns of an asset. Only the first column is used.
+    main : str, default "Empirical Cumulative Distribution Function"
+        Chart title.
+    xlab : str, default "Returns"
+        X-axis label.
+    ylab : str, default "Cumulative Probability"
+        Y-axis label.
+    colorset : list[str], optional
+        List of colors for ECDF and Normal lines.
+    **kwargs
+        Additional arguments passed to Plotly layout.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     from scipy.stats import norm
 
@@ -1716,6 +2285,32 @@ def chart_scatter(
 ) -> go.Figure:
     """
     Create a scatter plot with optional marginal distributions and regression line.
+
+    Matches R's `chart.Scatter`.
+
+    Parameters
+    ----------
+    x : pd.Series or pd.DataFrame
+        Independent variable.
+    y : pd.Series or pd.DataFrame
+        Dependent variable.
+    main : str, default "Scatter Plot"
+        Chart title.
+    xlab : str, optional
+        X-axis label.
+    ylab : str, optional
+        Y-axis label.
+    marginal : str, default "rug"
+        Type of marginal plot (e.g., 'histogram', 'rug', 'box', 'violin').
+    add_regression : bool, default True
+        If True, adds an OLS regression line.
+    **kwargs
+        Additional arguments passed to plotly.express scatter.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure object.
     """
     import plotly.express as px
 

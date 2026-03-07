@@ -1,6 +1,15 @@
+<div align="center">
+
 # PyPerfAnalytics
 
+[![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![R Compatibility](https://img.shields.io/badge/R--Compatibility-100%25-green.svg)](#verification)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#verification)
+
 PyPerfAnalytics is a Python port of the popular R package `PerformanceAnalytics`. It provides a collection of functions for performance and risk analysis of financial portfolios.
+
+</div>
 
 The library ensures algorithmic consistency with the original R implementation, validated against R benchmarks with high precision.
 
@@ -12,6 +21,19 @@ The library ensures algorithmic consistency with the original R implementation, 
 - **Advanced Metrics**: Hurst Index, Smoothing Index (Getmansky), CDaR (Conditional Drawdown at Risk).
 - **Summary Tables**: Comprehensive reporting tables for distributions, correlations, downside risk, and drawdowns.
 - **Attribution**: Aggregation of asset contributions to portfolio returns.
+
+## Visualization
+
+PyPerfAnalytics includes a comprehensive suite of interactive plotting functions built on **Plotly**, designed to match the visual output and logic of the R `PerformanceAnalytics` package while providing modern web-based interactivity.
+
+![PyPerfAnalytics Visualization Suite](docs/charts_gallery.jpg)
+
+### Core Charts
+- **Performance**: Cumulative Returns, Bar Returns, Drawdown (Underwater), and Performance Summaries.
+- **Risk**: Bar VaR/ES overlays, Risk Confidence Sensitivity, and Histograms with risk markers.
+- **Distribution**: Boxplots, Q-Q Plots, and ECDF (Empirical Cumulative Distribution Function).
+- **Rolling Metrics**: Rolling Performance, Rolling Correlation, and Rolling Regression (Alpha, Beta, R-Squared).
+- **Specialized**: Snail Trails (Rolling Risk-Return), Capture Ratios, ACF/PACF, and Event Studies.
 
 ## Installation
 
@@ -179,4 +201,4 @@ uv run pytest
 
 ## License
 
-This project is licensed under the GPL-2.0-or-later License - see the LICENSE file for details (matches original R PerformanceAnalytics).
+This project is licensed under the GPL v2+ License - see the LICENSE file for details (matches original R PerformanceAnalytics).
