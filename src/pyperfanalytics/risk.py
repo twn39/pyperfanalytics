@@ -725,10 +725,11 @@ def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAord
         try:
             import warnings
 
-            from statsmodels.tools.sm_exceptions import ValueWarning
+            from statsmodels.tools.sm_exceptions import ConvergenceWarning, ValueWarning
 
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=ValueWarning)
+                warnings.filterwarnings("ignore", category=ConvergenceWarning)
                 # R arima(..., include.mean=FALSE)
                 model = ARIMA(s, order=(0, 0, order), enforce_invertibility=True, trend="n")
                 res = model.fit()
