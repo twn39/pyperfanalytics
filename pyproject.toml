@@ -1,6 +1,6 @@
 [project]
 name = "pyperfanalytics"
-version = "1.0.0"
+version = "1.1.0"
 description = "Python port of R PerformanceAnalytics package using pandas, numpy, and statsmodels"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
