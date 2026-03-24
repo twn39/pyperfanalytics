@@ -97,6 +97,8 @@ fig.show()
 
 ## API Reference
 
+A detailed, module-by-module API documentation with function signatures, parameter descriptions, and code examples is available in the [Docs Directory](docs/api/index.md). Below is a quick overview of some commonly used functions.
+
 ### 1. Returns & Portfolio Management
 
 #### `return_calculate(prices, method="discrete")`
