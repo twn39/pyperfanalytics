@@ -1,3 +1,4 @@
+invisible(Sys.setlocale("LC_TIME", "C"))
 #!/usr/bin/env Rscript
 # Generate R benchmarks for tables.py regression tests.
 # Covers: table.CAPM, table.DownsideRisk, table.CaptureRatios, table.UpDownRatios,
@@ -128,4 +129,4 @@ for (col in cols_v) {
 }
 results$table_variability_manual <- var_result
 
-cat(toJSON(results, null = "null", na = "null", auto_unbox = TRUE, pretty = TRUE))
+cat(toJSON(results, null = "null", na = "null", auto_unbox = TRUE, pretty = TRUE, digits = NA))

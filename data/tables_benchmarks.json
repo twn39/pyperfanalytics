@@ -207,34 +207,34 @@
   "table_higher_moments_colnames": ["HAM1 to SP500.TR", "HAM2 to SP500.TR", "HAM3 to SP500.TR"],
   "table_prob_summary": {
     "HAM1": {
-      "skewness_moment": -0.6588,
-      "skewness_fisher": 0.5696,
-      "skewness_sample": -0.6741,
-      "kurtosis_moment": 5.3616,
-      "kurtosis_fisher": 0.8846,
-      "kurtosis_sample": 5.5704,
-      "kurtosis_excess": 2.3616,
-      "kurtosis_sample_excess": 2.5004
+      "skewness_moment": -0.658844491483433,
+      "skewness_fisher": 0.569585379427586,
+      "skewness_sample": -0.674087282419691,
+      "kurtosis_moment": 5.36158875983765,
+      "kurtosis_fisher": 0.884611444185547,
+      "kurtosis_sample": 5.57036141697384,
+      "kurtosis_excess": 2.36158875983765,
+      "kurtosis_sample_excess": 2.50041508423681
     },
     "HAM2": {
-      "skewness_moment": 1.458,
-      "skewness_fisher": 2.1977,
-      "skewness_sample": 1.4937,
-      "kurtosis_moment": 5.3794,
-      "kurtosis_fisher": 3.6661,
-      "kurtosis_sample": 5.6009,
-      "kurtosis_excess": 2.3794,
-      "kurtosis_sample_excess": 2.527
+      "skewness_moment": 1.45803979454527,
+      "skewness_fisher": 2.19767443767891,
+      "skewness_sample": 1.49369733738329,
+      "kurtosis_moment": 5.37939848064971,
+      "kurtosis_fisher": 3.66607152331394,
+      "kurtosis_sample": 5.60094108101233,
+      "kurtosis_excess": 2.37939848064971,
+      "kurtosis_sample_excess": 2.52697066917707
     },
     "HAM3": {
-      "skewness_moment": 0.7908,
-      "skewness_fisher": 1.5914,
-      "skewness_sample": 0.8091,
-      "kurtosis_moment": 5.6829,
-      "kurtosis_fisher": 3.1589,
-      "kurtosis_sample": 5.9042,
-      "kurtosis_excess": 2.6829,
-      "kurtosis_sample_excess": 2.8343
+      "skewness_moment": 0.790828459739194,
+      "skewness_fisher": 1.59135569678927,
+      "skewness_sample": 0.809124784644493,
+      "kurtosis_moment": 5.68293593384423,
+      "kurtosis_fisher": 3.15891005636559,
+      "kurtosis_sample": 5.90422139388002,
+      "kurtosis_excess": 2.68293593384423,
+      "kurtosis_sample_excess": 2.83427506114299
     }
   },
   "table_drawdowns": [
@@ -286,19 +286,19 @@
   ],
   "table_variability_manual": {
     "HAM1": {
-      "MeanAbsoluteDeviation": 0.0182,
-      "PeriodStdDev": 0.0256,
-      "AnnualizedStdDev": 0.0888
+      "MeanAbsoluteDeviation": 0.0181863636363636,
+      "PeriodStdDev": 0.0256288083102974,
+      "AnnualizedStdDev": 0.088780796261757
     },
     "HAM2": {
-      "MeanAbsoluteDeviation": 0.0268,
-      "PeriodStdDev": 0.0367,
-      "AnnualizedStdDev": 0.1272
+      "MeanAbsoluteDeviation": 0.0267981312,
+      "PeriodStdDev": 0.0367162272641965,
+      "AnnualizedStdDev": 0.127188742167668
     },
     "HAM3": {
-      "MeanAbsoluteDeviation": 0.0268,
-      "PeriodStdDev": 0.0365,
-      "AnnualizedStdDev": 0.1265
+      "MeanAbsoluteDeviation": 0.0268216483011938,
+      "PeriodStdDev": 0.0365125920753395,
+      "AnnualizedStdDev": 0.126483329181049
     }
   }
 }

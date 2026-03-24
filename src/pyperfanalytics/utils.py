@@ -173,15 +173,16 @@ def _get_scale(data: pd.Series | pd.DataFrame) -> int:
     # Simple heuristic based on pandas frequency or average spacing
     freq = data.index.inferred_freq
     if freq:
-        if "B" in freq or "D" in freq:
+        freq_base = freq.split("-")[0]
+        if freq_base in ["B", "D"]:
             return 252
-        if "W" in freq:
+        if freq_base in ["W"]:
             return 52
-        if "ME" in freq or "M" in freq:
+        if freq_base in ["M", "ME", "MS", "BME", "BMS"]:
             return 12
-        if "QE" in freq or "Q" in freq:
+        if freq_base in ["Q", "QE", "QS", "BQE", "BQS"]:
             return 4
-        if "YE" in freq or "Y" in freq:
+        if freq_base in ["Y", "YE", "YS", "BYE", "BYS", "A"]:
             return 1
 
     # Fallback to empirical spacing if freq is not set

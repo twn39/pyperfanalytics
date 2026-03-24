@@ -34,7 +34,7 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     bench_data = bench[r_key]
 
     # Tolerances
-    tol = 1e-4  # Standard for diverse data comparison
+    tol = 1e-6  # Standard for diverse data comparison
 
     # Returns & Standard Deviation
     assert pa.return_annualized(ra) == pytest.approx(bench_data["Return.annualized"], abs=tol)
@@ -110,7 +110,7 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     # Looser tolerance for ACF differences across Python and R for Herfindahl Index
     assert pa.herfindahl_index(ra) == pytest.approx(bench_data["HerfindahlIndex"], abs=tol * 10)
 
-    py_ir_table = pa.table_information_ratio(ra, rb, scale=252)
+    py_ir_table = pa.table_information_ratio(ra, rb, scale=252, digits=8)
     bench_ir = bench_data["table.InformationRatio"]
     assert py_ir_table.iloc[0, 0] == pytest.approx(bench_ir["Tracking Error"], abs=tol)
     assert py_ir_table.iloc[1, 0] == pytest.approx(bench_ir["Annualised Tracking Error"], abs=tol)
@@ -121,7 +121,7 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     else:
         assert py_ir_table.iloc[2, 0] == pytest.approx(bench_val, abs=tol)
 
-    py_sr_table = pa.table_specific_risk(ra, rb, Rf=rf)
+    py_sr_table = pa.table_specific_risk(ra, rb, Rf=rf, digits=8)
     bench_sr = bench_data["table.SpecificRisk"]
     assert py_sr_table.iloc[0, 0] == pytest.approx(bench_sr["Specific Risk"], abs=tol)
     assert py_sr_table.iloc[1, 0] == pytest.approx(bench_sr["Systematic Risk"], abs=tol)

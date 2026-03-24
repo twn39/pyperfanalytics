@@ -60,7 +60,7 @@ MIXED_ZEROS = [0.0, 0.0, 0.01, -0.01, 0.0, 0.02, -0.02, 0.0, 0.01, 0.0]
 HIGH_VOL = [0.15, -0.12, 0.20, -0.18, 0.10, -0.08, 0.25, -0.20, 0.12, -0.15]
 BENCH_PROXY = [0.01, 0.015, 0.008, 0.012, 0.009, 0.011, 0.013, 0.007, 0.010, 0.012]
 
-TOL = 1e-3  # tolerance for edge cases; slightly wider than production tests
+TOL = 1e-6  # tolerance for edge cases; slightly wider than production tests
 
 
 # ---------------------------------------------------------------------------

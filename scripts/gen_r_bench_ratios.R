@@ -107,5 +107,5 @@ for (col in colnames(Ra)) {
 }
 
 # Save to JSON
-write_json(metrics, "data/r_benchmarks_v2.json", auto_unbox=TRUE, pretty=TRUE)
+write_json(metrics, "data/r_benchmarks_v2.json", auto_unbox=TRUE, pretty=TRUE, digits=NA)
 cat("Benchmarks saved to data/r_benchmarks_v2.json\n")

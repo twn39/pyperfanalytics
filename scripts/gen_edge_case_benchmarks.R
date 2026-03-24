@@ -89,4 +89,4 @@ for (nm in names(cases)) {
 # Also save the raw series values for verification
 results$`_series` <- lapply(cases, as.list)
 
-cat(toJSON(results, null = "null", na = "null", auto_unbox = TRUE, pretty = TRUE))
+cat(toJSON(results, null = "null", na = "null", auto_unbox = TRUE, pretty = TRUE, digits = NA))
