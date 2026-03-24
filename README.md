@@ -47,21 +47,52 @@ uv pip install pyperfanalytics
 pip install pyperfanalytics
 ```
 
+
 ## Quick Start
 
 ```python
 import pandas as pd
 import pyperfanalytics as pa
 
-# Load your return data
-returns = pd.read_csv("your_returns.csv", index_col=0, parse_dates=True)
+# 1. Load your return data (e.g., monthly returns of a fund and its benchmark)
+# Data should be a pandas Series or DataFrame with a DatetimeIndex
+url = "https://raw.githubusercontent.com/twn39/pyperfanalytics/main/data/managers.csv"
+returns_data = pd.read_csv(url, index_col=0, parse_dates=True)
 
-# Calculate Annualized Sharpe Ratio
-sharpe = pa.sharpe_ratio(returns, Rf=0, annualize=True)
+fund_return = returns_data["HAM1"].dropna()
+benchmark_return = returns_data["SP500 TR"].dropna()
+risk_free_rate = returns_data["US 3m TR"].dropna()
 
-# Generate a Downside Risk Summary Table
-risk_table = pa.table_downside_risk_ratio(returns)
-print(risk_table)
+# 2. Calculate core performance metrics
+ann_return = pa.return_annualized(fund_return)
+ann_volatility = pa.std_dev_annualized(fund_return)
+max_dd = pa.max_drawdown(fund_return)
+
+print(f"Annualized Return: {ann_return:.2%}")
+print(f"Annualized Volatility: {ann_volatility:.2%}")
+print(f"Maximum Drawdown: {max_dd:.2%}")
+
+# 3. Calculate Risk-Adjusted Ratios
+# Traditional Sharpe
+sharpe = pa.sharpe_ratio(fund_return, Rf=risk_free_rate, annualize=True)
+# Sortino Ratio (using 0% as Minimum Acceptable Return)
+sortino = pa.sortino_ratio(fund_return, MAR=0)
+# Information Ratio (Active Return / Tracking Error)
+info_ratio = pa.information_ratio(fund_return, benchmark_return)
+
+# 4. Generate Comprehensive Summary Tables
+# Returns summary including mean, std dev, skewness, kurtosis, etc.
+stats_table = pa.table_stats(fund_return)
+print(stats_table)
+
+# Downside Risk summary table
+downside_table = pa.table_downside_risk(fund_return)
+print(downside_table)
+
+# 5. Interactive Visualization
+# Create an interactive Plotly chart of the Underwater Drawdown
+fig = pa.chart_drawdown(fund_return)
+fig.show()
 ```
 
 ## API Reference
