@@ -310,7 +310,7 @@ def table_downside_risk(
             gain_deviation(x),
             loss_deviation(x),
             downside_deviation(x, MAR=MAR),
-            downside_deviation(x, MAR=rf_val),
+            downside_deviation(x, MAR=float(rf_val)), # type: ignore
             downside_deviation(x, MAR=0),
             max_drawdown(x),
             -var_historical(x, p=p),
@@ -494,8 +494,13 @@ def table_calendar_returns(
 
     # Create Year x Month pivot
     df = s.to_frame()
-    df["Year"] = df.index.year
-    df["Month"] = df.index.month
+    if not isinstance(df.index, pd.DatetimeIndex):
+        dt_index = pd.to_datetime(df.index)
+    else:
+        dt_index = df.index
+        
+    df["Year"] = dt_index.year # type: ignore
+    df["Month"] = dt_index.month # type: ignore
 
     # Map month numbers to short names
     month_map = {
@@ -845,7 +850,7 @@ def table_information_ratio(
     for col in ra_cols:
         # periodic tracking error
         # R: TrackingError(y[,column,drop=FALSE])/sqrt(scale)
-        te_periodic = tracking_error(ra_df[col], Rb, scale=1.0)  # scale=1 for periodic
+        te_periodic = tracking_error(ra_df[col], Rb, scale=1)  # scale=1 for periodic
         te_annual = tracking_error(ra_df[col], Rb, scale=scale)
         ir = information_ratio(ra_df[col], Rb, scale=scale)
 
@@ -921,11 +926,16 @@ def table_prob_sharpe_ratio(
         ra_df = R
 
     final_results = []
-    for rsr in refSR:
-        row = prob_sharpe_ratio(ra_df, refSR=rsr, Rf=Rf)
+    if isinstance(refSR, (list, tuple, np.ndarray, pd.Series)):
+        refSR_list = list(refSR)
+    else:
+        refSR_list = [refSR]
+        
+    for rsr in refSR_list:
+        row = prob_sharpe_ratio(ra_df, refSR=float(rsr), Rf=float(Rf))
         final_results.append(row)
 
-    res_df = pd.DataFrame(final_results, index=[f"PSR (refSR={round(r, 4)})" for r in refSR])
+    res_df = pd.DataFrame(final_results, index=[f"PSR (refSR={round(float(r), 4)})" for r in refSR_list])
     return res_df.round(digits)
 
 

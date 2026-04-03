@@ -32,7 +32,7 @@ def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete")
     if method in ["discrete", "simple", "arithmetic"]:
         return prices.pct_change()
     elif method in ["log", "compound", "continuous"]:
-        return np.log(prices).diff()
+        return np.log(prices.astype(float)).diff() # type: ignore
     elif method in ["diff", "difference"]:
         return prices.diff()
     else:
@@ -442,7 +442,10 @@ def information_ratio(
 
     # Handle the case where tracking_error might return a scalar, Series, or DataFrame
     if isinstance(te, (pd.Series, pd.DataFrame)):
-        return ap.divide(te.replace(0, np.nan))
+        if isinstance(ap, (pd.Series, pd.DataFrame)):
+            return ap.divide(te.replace(0, np.nan))
+        else:
+            return ap / te.replace(0, np.nan)
     else:
         return ap / te if te != 0 else np.nan
 
@@ -763,7 +766,7 @@ def kelly_ratio(
             results.append(_calc(xR[col], R[col], method))
         return pd.Series(results, index=R.columns)
     else:
-        return _calc(xR, R, method)
+        return _calc(xR, R, method) # type: ignore
 
 
 def upside_potential_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0, method: str = "subset") -> float | pd.Series:
@@ -1232,7 +1235,7 @@ def burke_ratio(
     if isinstance(R, pd.DataFrame):
         return R.apply(_calc, rf_val=rf_mean)
     else:
-        return _calc(R, rf_mean)
+        return _calc(R, rf_mean) # type: ignore
 
 
 def modigliani(
@@ -1552,6 +1555,7 @@ def m_squared_excess(
         else:
             # m2 is series where index is assets, but rb had multiple? Wait, if len(ra)=1, index is rb.
             raise NotImplementedError("Complex alignments for M2 Excess not fully supported yet.")
+        return float(np.nan) # Added to fix type checking return
 
     if isinstance(m2, pd.DataFrame):
         res = m2.copy()
@@ -1562,6 +1566,8 @@ def m_squared_excess(
             else:
                 res.loc[rb_col] = res.loc[rb_col] - rbp_val
         return res
+    
+    return float(np.nan)
 
 
 def net_selectivity(
@@ -1579,7 +1585,7 @@ def net_selectivity(
         scale = _get_scale(Ra)
 
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        rf_val = float(Rf.mean())
+        rf_val = float(Rf.mean()) # type: ignore
     else:
         rf_val = float(Rf)
 
@@ -1724,7 +1730,7 @@ def downside_sharpe_ratio(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | p
     SemiSD is calculated wrt mean of returns (not Rf or MAR).
     r"""
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        rf_val = float(Rf.mean())
+        rf_val = float(Rf.mean()) # type: ignore
     else:
         rf_val = float(Rf)
 
@@ -2034,7 +2040,7 @@ def jensen_alpha(
             # This is R's convention: users pass Rf at the same rate as Rp (e.g., annualized 0.035)
             # or pass 0 as the default. The previous Rf.mean()*scale was incorrect.
             if isinstance(Rf, (pd.Series, pd.DataFrame)):
-                rf_val = float(Rf.mean())
+                rf_val = float(Rf.mean()) # type: ignore
             else:
                 rf_val = float(Rf)
 
@@ -2196,7 +2202,7 @@ def prob_sharpe_ratio(
         else:
             return R.apply(_calc, rsr=refSR, rf=Rf)
     else:
-        return _calc(R, refSR, Rf)
+        return _calc(R, float(refSR), float(Rf)) # type: ignore
 
 
 def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess: float = 0.1) -> float | pd.Series:
