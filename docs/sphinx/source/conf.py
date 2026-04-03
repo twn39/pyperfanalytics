@@ -5,7 +5,21 @@
 
 import os
 import sys
+import shutil
+
 sys.path.insert(0, os.path.abspath('../../../src'))
+
+# Copy README.md so it can be included in Sphinx
+readme_path = os.path.abspath('../../../README.md')
+with open(readme_path, 'r', encoding='utf-8') as f:
+    readme_content = f.read()
+
+# Fix paths for Sphinx
+readme_content = readme_content.replace('docs/sphinx/source/charts_gallery.jpg', 'charts_gallery.jpg')
+readme_content = readme_content.replace('docs/api/index.md', 'api/index.md')
+
+with open(os.path.abspath('README.md'), 'w', encoding='utf-8') as f:
+    f.write(readme_content)
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -26,7 +40,19 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
     'sphinx_autodoc_typehints',
+    'myst_parser',
 ]
+
+myst_enable_extensions = [
+    "colon_fence",
+    "html_image",
+    "html_admonition",
+]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

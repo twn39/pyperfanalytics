@@ -10,3 +10,15 @@
 - [Tables 模块](tables.md): 提供 tables 相关的计算或图表功能
 - [Charts 模块](charts.md): 提供 charts 相关的计算或图表功能
 - [Utils 模块](utils.md): 提供 utils 相关的计算或图表功能
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+
+returns.md
+risk.md
+drawdowns.md
+tables.md
+charts.md
+utils.md
+```

@@ -28,7 +28,7 @@ The library ensures algorithmic consistency with the original R implementation, 
 
 PyPerfAnalytics includes a comprehensive suite of interactive plotting functions built on **Plotly**, designed to match the visual output and logic of the R `PerformanceAnalytics` package while providing modern web-based interactivity.
 
-![PyPerfAnalytics Visualization Suite](docs/sphinx/source/charts_gallery.jpg)
+![PyPerfAnalytics Visualization Suite](charts_gallery.jpg)
 
 ### Core Charts
 - **Performance**: Cumulative Returns, Bar Returns, Drawdown (Underwater), and Performance Summaries.
