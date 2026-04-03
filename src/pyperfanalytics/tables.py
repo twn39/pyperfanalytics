@@ -80,9 +80,10 @@ def table_annualized_returns(
     and Annualized Sharpe Ratio.
 
     Formulas:
-    - Annualized Return: $(1 + R_{cum})^{scale / n} - 1$
-    - Annualized Std Dev: $\sigma \cdot \sqrt{scale}$
-    - Annualized Sharpe: $\frac{R_{ann} - R_{f, ann}}{\sigma_{ann}}$
+
+    - Annualized Return: :math:`(1 + R_{cum})^{scale / n} - 1`
+    - Annualized Std Dev: :math:`\sigma \cdot \sqrt{scale}`
+    - Annualized Sharpe: :math:`\frac{R_{ann} - R_{f, ann}}{\sigma_{ann}}`
 
     Parameters
     ----------
@@ -101,7 +102,7 @@ def table_annualized_returns(
     -------
     pd.DataFrame
         A table containing the summary statistics.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -138,7 +139,7 @@ def table_capm(
     Rf: float | pd.Series | pd.DataFrame = 0.0,
     digits: int = 4,
 ) -> pd.DataFrame:
-    """
+    r"""
     Single Factor Asset-Pricing Model (CAPM) Summary Table.
 
     Creates a summary table containing multiple CAPM and relative risk/return metrics:
@@ -163,7 +164,7 @@ def table_capm(
     -------
     pd.DataFrame
         CAPM summary table comparing each asset in Ra to each benchmark in Rb.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -254,7 +255,7 @@ def table_downside_risk(
     p: float = 0.95,
     digits: int = 4,
 ) -> pd.DataFrame:
-    """
+    r"""
     Downside Risk Summary: Statistics and Stylized Facts.
 
     Creates a table containing multiple downside-focused risk metrics:
@@ -280,7 +281,7 @@ def table_downside_risk(
     -------
     pd.DataFrame
         Downside risk summary table comparing all columns in R.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -349,7 +350,10 @@ def table_capture_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
     while Down Capture measures the same for negative returns.
 
     Formula:
-    $$ Capture = \frac{R_{a, ann}}{R_{b, ann}} $$ subsetted by positive/negative benchmark returns.
+
+    .. math::
+
+        Capture = \frac{R_{a, ann}}{R_{b, ann}} subsetted by positive/negative benchmark returns.
 
     Parameters
     ----------
@@ -364,7 +368,7 @@ def table_capture_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
     -------
     pd.DataFrame
         Table of Up and Down Capture Ratios.
-    """
+    r"""
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -396,7 +400,7 @@ def table_capture_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
 
 
 def table_up_down_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
-    """
+    r"""
     Up and Down Market Ratios Table.
 
     Calculate and display a table of up and down market statistics including
@@ -415,7 +419,7 @@ def table_up_down_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
     -------
     pd.DataFrame
         Table of Up/Down Capture, Number, and Percent.
-    """
+    r"""
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -456,7 +460,7 @@ def table_up_down_ratios(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
 def table_calendar_returns(
     R: pd.Series | pd.DataFrame, digits: int = 1, as_perc: bool = True, geometric: bool = True
 ) -> pd.DataFrame:
-    """
+    r"""
     Monthly and Calendar Year Return Table.
 
     Transforms a time series of returns into a calendar-formatted table where rows
@@ -477,7 +481,7 @@ def table_calendar_returns(
     -------
     pd.DataFrame
         Calendar returns matrix.
-    """
+    r"""
     if isinstance(R, pd.DataFrame):
         # PerformanceAnalytics defaults to first column if many
         s = R.iloc[:, 0]
@@ -536,7 +540,7 @@ def table_calendar_returns(
 
 
 def table_higher_moments(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
-    """
+    r"""
     Higher Moments Summary: Statistics and Stylized Facts (Co-Moments).
 
     Creates a table of CoSkewness, CoKurtosis, Beta CoVariance, Beta CoSkewness,
@@ -555,7 +559,7 @@ def table_higher_moments(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
     -------
     pd.DataFrame
         Higher moments summary table.
-    """
+    r"""
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
@@ -597,7 +601,7 @@ def table_higher_moments(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFr
 
 
 def table_prob_skewness_kurtosis(R: pd.Series | pd.DataFrame, digits: int = 4) -> pd.DataFrame:
-    """
+    r"""
     Summary table for univariate skewness and kurtosis methods.
 
     Generates a table showing different estimates of skewness and kurtosis
@@ -614,7 +618,7 @@ def table_prob_skewness_kurtosis(R: pd.Series | pd.DataFrame, digits: int = 4) -
     -------
     pd.DataFrame
         Skewness and kurtosis metrics table.
-    """
+    r"""
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
@@ -662,7 +666,7 @@ def table_prob_skewness_kurtosis(R: pd.Series | pd.DataFrame, digits: int = 4) -
 def table_variability(
     R: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True, digits: int = 4
 ) -> pd.DataFrame:
-    """
+    r"""
     Variability Summary: Statistics and Stylized Facts.
 
     Creates a table of Mean Absolute Deviation, Period Standard Deviation,
@@ -683,7 +687,7 @@ def table_variability(
     -------
     pd.DataFrame
         Variability metrics table.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -718,7 +722,7 @@ def table_variability(
 
 
 def table_drawdowns(R: pd.Series, top: int = 5, digits: int = 4, geometric: bool = True) -> pd.DataFrame:
-    """
+    r"""
     Worst Drawdowns Summary: Statistics and Stylized Facts.
 
     Finds the largest drawdowns in the return series and formats them into a table
@@ -740,7 +744,7 @@ def table_drawdowns(R: pd.Series, top: int = 5, digits: int = 4, geometric: bool
     -------
     pd.DataFrame
         Worst drawdowns table.
-    """
+    r"""
     # PerformanceAnalytics' table.Drawdowns only works for single column
     if isinstance(R, pd.DataFrame):
         if R.shape[1] > 1:
@@ -804,7 +808,7 @@ def table_drawdowns(R: pd.Series, top: int = 5, digits: int = 4, geometric: bool
 def table_information_ratio(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
-    """
+    r"""
     Information Ratio Summary: Statistics and Stylized Facts.
 
     Creates a table containing calculated metrics relating to the tracking error and
@@ -825,7 +829,7 @@ def table_information_ratio(
     -------
     pd.DataFrame
         A table showing Periodic Tracking Error, Annualized Tracking Error, and Information Ratio.
-    """
+    r"""
     if scale is None:
         scale = _get_utils_scale(Ra)
 
@@ -858,10 +862,10 @@ def table_specific_risk(
     Rf: float | pd.Series | pd.DataFrame = 0,
     digits: int = 4,
 ) -> pd.DataFrame:
-    """
+    r"""
     Specific risk Summary: Statistics and Stylized Facts
     Table of specific risk, systematic risk and total risk.
-    """
+    r"""
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -885,7 +889,7 @@ def table_specific_risk(
 def table_prob_sharpe_ratio(
     R: pd.Series | pd.DataFrame, refSR: float | list | np.ndarray = 0.0, Rf: float = 0.0, digits: int = 4
 ) -> pd.DataFrame:
-    """
+    r"""
     Summary table for Probabilistic Sharpe Ratio across different thresholds.
 
     Calculates the statistical significance of the Sharpe Ratio against a given set
@@ -907,7 +911,7 @@ def table_prob_sharpe_ratio(
     -------
     pd.DataFrame
         A table of Probabilistic Sharpe Ratio values for each threshold.
-    """
+    r"""
     if isinstance(refSR, (float, int, np.float64, np.int64)):
         refSR = [refSR]
 
@@ -926,10 +930,10 @@ def table_prob_sharpe_ratio(
 
 
 def table_autocorrelation(R: pd.Series | pd.DataFrame, digits: int = 4, max_lag: int = 6) -> pd.DataFrame:
-    """
+    r"""
     Table for calculating the first six (default) autocorrelation coefficients and significance.
     Produces data table of autocorrelation coefficients rho and corresponding Q(max_lag)-statistic.
-    """
+    r"""
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
@@ -965,7 +969,7 @@ def table_autocorrelation(R: pd.Series | pd.DataFrame, digits: int = 4, max_lag:
 def table_correlation(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, digits: int = 4, conf_level: float = 0.95
 ) -> pd.DataFrame:
-    """
+    r"""
     Calculate correlations and significance of multicolumn data.
 
     Computes the Pearson correlation coefficient between assets and benchmarks,
@@ -986,7 +990,7 @@ def table_correlation(
     -------
     pd.DataFrame
         A table showing Correlation, p-value, Lower CI, and Upper CI.
-    """
+    r"""
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
@@ -1044,10 +1048,10 @@ def table_correlation(
 
 
 def table_distributions(R: pd.Series | pd.DataFrame, scale: int | None = None, digits: int = 4) -> pd.DataFrame:
-    """
+    r"""
     Distributions Summary: Statistics and Stylized Facts.
     Table of standard deviation, Skewness, Kurtosis, etc.
-    """
+    r"""
     if scale is None:
         scale = _get_utils_scale(R)
 
@@ -1097,7 +1101,7 @@ def table_distributions(R: pd.Series | pd.DataFrame, scale: int | None = None, d
 def table_downside_risk_ratio(
     R: pd.Series | pd.DataFrame, MAR: float = 0, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
-    """
+    r"""
     Downside Risk Summary: Ratios and Metrics.
 
     Creates a comprehensive table of downside-related metrics, contrasting
@@ -1121,7 +1125,7 @@ def table_downside_risk_ratio(
     -------
     pd.DataFrame
         Downside ratios and statistics matrix.
-    """
+    r"""
     if scale is None:
         scale = _get_utils_scale(R)
 
@@ -1172,10 +1176,10 @@ def table_downside_risk_ratio(
 def table_drawdowns_ratio(
     R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0, scale: int | None = None, digits: int = 4
 ) -> pd.DataFrame:
-    """
+    r"""
     Drawdowns Summary: Statistics and ratios.
     Table of Sterling ratio, Calmar ratio, Burke ratio, etc.
-    """
+    r"""
     if scale is None:
         scale = _get_utils_scale(R)
 
@@ -1219,10 +1223,10 @@ def table_drawdowns_ratio(
 
 
 def table_stats(R: pd.Series | pd.DataFrame, ci: float = 0.95, digits: int = 4) -> pd.DataFrame:
-    """
+    r"""
     Returns Summary: Statistics and Stylized Facts.
     R equivalent: table.Stats or table.MonthlyReturns.
-    """
+    r"""
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:
@@ -1309,11 +1313,11 @@ def table_prob_outperformance(
     Rb: pd.Series | pd.DataFrame,
     period_lengths: list[int] | None = None,
 ) -> pd.DataFrame:
-    """
+    r"""
     Outperformance Report of Asset vs Benchmark.
     Returns a table that contains the counts and probabilities
     of outperformance relative to benchmark for the various period_lengths.
-    """
+    r"""
     if period_lengths is None:
         period_lengths = [1, 3, 6, 9, 12, 18, 36]
     if isinstance(R, pd.Series):
@@ -1367,9 +1371,9 @@ def table_rolling_periods(
     funcs_names: list[str] | None = None,
     digits: int = 4,
 ) -> pd.DataFrame:
-    """
+    r"""
     Rolling Periods Summary: Statistics and Stylized Facts.
-    """
+    r"""
     if periods is None:
         periods = [12, 36, 60]
     if funcs is None:

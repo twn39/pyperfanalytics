@@ -3,9 +3,9 @@ import pandas as pd
 
 
 def centered_moment(R: pd.Series | pd.DataFrame, moment: int) -> float | pd.Series:
-    """
+    r"""
     Calculate the nth centered moment (population version, matching R's PerformanceAnalytics).
-    """
+    r"""
 
     def _calc(s: pd.Series, m: int) -> float:
         s = s.dropna()
@@ -20,10 +20,10 @@ def centered_moment(R: pd.Series | pd.DataFrame, moment: int) -> float | pd.Seri
 
 
 def centered_comoment(Ra: pd.Series, Rb: pd.Series, p1: int, p2: int, normalize: bool = False) -> float:
-    """
+    r"""
     Calculate the joint centered comoment of two series.
     E[ (Ra - E[Ra])^p1 * (Rb - E[Rb])^p2 ]
-    """
+    r"""
     merged = pd.concat([Ra, Rb], axis=1).dropna()
     if merged.empty:
         return np.nan
@@ -71,10 +71,10 @@ def beta_co_kurtosis(Ra: pd.Series, Rb: pd.Series) -> float:
 
 
 def skewness(R: pd.Series | pd.DataFrame, method: str = "moment") -> float | pd.Series:
-    """
+    r"""
     Calculate skewness of the return distribution.
     Methods: 'moment', 'fisher', 'sample'.
-    """
+    r"""
 
     def _calc(s: pd.Series, meth: str) -> float:
         s = s.dropna()
@@ -116,10 +116,10 @@ def skewness(R: pd.Series | pd.DataFrame, method: str = "moment") -> float | pd.
 
 
 def kurtosis(R: pd.Series | pd.DataFrame, method: str = "excess") -> float | pd.Series:
-    """
+    r"""
     Calculate kurtosis of the return distribution.
     Methods: 'excess', 'moment', 'fisher', 'sample', 'sample_excess'.
-    """
+    r"""
 
     def _calc(s: pd.Series, meth: str) -> float:
         s = s.dropna()
@@ -164,9 +164,9 @@ def kurtosis(R: pd.Series | pd.DataFrame, method: str = "excess") -> float | pd.
 
 
 def _get_scale(data: pd.Series | pd.DataFrame) -> int:
-    """
+    r"""
     Determine the scale (periods per year) based on index frequency.
-    """
+    r"""
     if not isinstance(data.index, pd.DatetimeIndex):
         raise ValueError("Data index must be a DatetimeIndex to determine scale.")
 

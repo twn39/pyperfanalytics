@@ -5,16 +5,17 @@ from pyperfanalytics.utils import _get_scale
 
 
 def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete") -> pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate returns from a price stream.
 
     Determines the period-over-period returns based on a pricing series, supporting
     both discrete (simple) and continuous (log) methods.
 
     Formula:
-    - discrete: $R_t = \frac{P_t}{P_{t-1}} - 1$
-    - continuous: $r_t = \\ln(P_t) - \\ln(P_{t-1})$
-    - difference: $D_t = P_t - P_{t-1}$
+
+    - discrete: :math:`R_t = \frac{P_t}{P_{t-1}} - 1`
+    - continuous: :math:`r_t = \\ln(P_t) - \\ln(P_{t-1})`
+    - difference: :math:`D_t = P_t - P_{t-1}`
 
     Parameters
     ----------
@@ -27,7 +28,7 @@ def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete")
     -------
     pd.Series or pd.DataFrame
         Returns series.
-    """
+    r"""
     if method in ["discrete", "simple", "arithmetic"]:
         return prices.pct_change()
     elif method in ["log", "compound", "continuous"]:
@@ -39,9 +40,9 @@ def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete")
 
 
 def return_excess(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0) -> pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate excess returns by subtracting the risk-free rate.
-    """
+    r"""
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         # R implementation uses na.locf on Rf and aligns it to R
         # We merge them to ensure alignment
@@ -66,14 +67,17 @@ def return_excess(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFr
 def return_annualized(
     R: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate annualized return.
 
     Aggregates period returns into an annualized equivalent, assuming continuous
     compounding (geometric) or simple arithmetic averaging.
 
     Formula (Geometric):
-    $$ R_{ann} = \\left[ \\prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1 $$
+
+    .. math::
+
+        R_{ann} = \\left[ \\prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1
 
     Parameters
     ----------
@@ -88,7 +92,7 @@ def return_annualized(
     -------
     float or pd.Series
         Annualized return.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -112,9 +116,9 @@ def return_annualized(
 
 
 def std_dev_annualized(R: pd.Series | pd.DataFrame, scale: int | None = None) -> float | pd.Series:
-    """
+    r"""
     Calculate annualized standard deviation.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -128,14 +132,17 @@ def std_dev_annualized(R: pd.Series | pd.DataFrame, scale: int | None = None) ->
 def downside_deviation(
     R: pd.Series | pd.DataFrame, MAR: float = 0.0, method: str = "full", potential: bool = False
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate downside deviation or potential.
 
     Downside deviation measures the volatility of returns below a minimum acceptable
     return (MAR). Different from standard deviation, it only penalizes losses.
 
     Formula:
-    $$ \\delta_{MAR} = \\sqrt{\frac{1}{n} \\sum_{t=1}^n \\min(R_t - MAR, 0)^2} $$
+
+    .. math::
+
+        \\delta_{MAR} = \\sqrt{\frac{1}{n} \\sum_{t=1}^n \\min(R_t - MAR, 0)^2}
 
     Parameters
     ----------
@@ -144,7 +151,7 @@ def downside_deviation(
     MAR : float, optional
         Minimum acceptable return. Default is 0.0.
     method : str, optional
-        "full" (divide by total $n$) or "subset" (divide by number of downside periods).
+        "full" (divide by total :math:`n`) or "subset" (divide by number of downside periods).
     potential : bool, optional
         If True, calculates Downside Potential (first lower partial moment).
 
@@ -152,7 +159,7 @@ def downside_deviation(
     -------
     float or pd.Series
         Downside deviation.
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float, meth: str, pot: bool) -> float:
         s = s.dropna()
@@ -182,14 +189,14 @@ def downside_deviation(
 
 
 def downside_potential(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Calculate downside potential.
-    """
+    r"""
     return downside_deviation(R, MAR=MAR, method="full", potential=True)
 
 
 def semi_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate semi-deviation.
 
     Semi-deviation is the downside deviation where MAR is the mean return.
@@ -204,7 +211,7 @@ def semi_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     -------
     float or pd.Series
         Semi-deviation.
-    """
+    r"""
     if isinstance(R, pd.DataFrame):
         return R.apply(lambda x: downside_deviation(x, MAR=x.mean(), method="full"))
     else:
@@ -212,9 +219,9 @@ def semi_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def semi_variance(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate semi-variance (MAR = mean, method = subset).
-    """
+    r"""
     if isinstance(R, pd.DataFrame):
         return R.apply(lambda x: downside_deviation(x, MAR=x.mean(), method="subset") ** 2)
     else:
@@ -222,9 +229,9 @@ def semi_variance(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def gain_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Standard deviation of the positive returns.
-    """
+    r"""
 
     def _calc(s: pd.Series) -> float:
         subset = s[s > 0]
@@ -252,9 +259,9 @@ def loss_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def sortino_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Calculate the Sortino Ratio.
-    """
+    r"""
     # R code: mean(Return.excess(R, MAR), na.rm=TRUE)/DownsideDeviation(R, MAR)
     excess_return = (R - MAR).mean()
     downside_risk = downside_deviation(R, MAR=MAR, method="full")
@@ -269,14 +276,17 @@ def sharpe_ratio(
     annualize: bool = False,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate the Sharpe Ratio.
 
     Measures excess return per unit of risk. The risk metric can be defined as
     Standard Deviation, Value at Risk (VaR), Expected Shortfall (ES), or SemiSD.
 
     Formula:
-    $$ SR = \frac{\\overline{R_a - R_f}}{Risk} $$
+
+    .. math::
+
+        SR = \frac{\\overline{R_a - R_f}}{Risk}
 
     Parameters
     ----------
@@ -297,7 +307,7 @@ def sharpe_ratio(
     -------
     float or pd.Series
         The Sharpe Ratio.
-    """
+    r"""
     from pyperfanalytics.risk import es_modified, var_modified
 
     if scale is None and annualize:
@@ -346,11 +356,11 @@ def sharpe_ratio(
 def active_premium(
     R: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Active Premium or Active Return.
 
     Active Premium = Investment's annualized return - Benchmark's annualized return
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -397,14 +407,17 @@ def active_premium(
 def information_ratio(
     R: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate the Information Ratio.
 
     The Information Ratio measures the active return of an investment divided
     by its tracking error (active risk).
 
     Formula:
-    $$ IR = \frac{ActivePremium}{TrackingError} $$
+
+    .. math::
+
+        IR = \frac{ActivePremium}{TrackingError}
 
     Parameters
     ----------
@@ -421,7 +434,7 @@ def information_ratio(
     -------
     float, pd.Series, or pd.DataFrame
         Information Ratio.
-    """
+    r"""
     from pyperfanalytics.risk import tracking_error
 
     ap = active_premium(R, Rb, scale=scale, geometric=geometric)
@@ -437,14 +450,17 @@ def information_ratio(
 def capm_alpha(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate CAPM alpha of returns against a benchmark.
 
     Alpha represents the excess return of an investment relative to the return of
     a benchmark index, adjusted for the systemic risk (beta) of the investment.
 
     Formula:
-    $$ \alpha = \\overline{R_a - R_f} - \beta \\cdot \\overline{R_b - R_f} $$
+
+    .. math::
+
+        \alpha = \\overline{R_a - R_f} - \beta \\cdot \\overline{R_b - R_f}
 
     Parameters
     ----------
@@ -459,7 +475,7 @@ def capm_alpha(
     -------
     float, pd.Series, or pd.DataFrame
         CAPM Alpha value(s).
-    """
+    r"""
     from pyperfanalytics.risk import capm_beta
 
     # Standardize inputs
@@ -525,14 +541,17 @@ def treynor_ratio(
     Rf: float | pd.Series | pd.DataFrame = 0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Treynor Ratio.
 
     The Treynor ratio measures returns earned in excess of that which could have
     been earned on a riskless investment per each unit of market risk (beta).
 
     Formula:
-    $$ TR = \frac{R_{a, ann} - R_{f, ann}}{\beta} $$
+
+    .. math::
+
+        TR = \frac{R_{a, ann} - R_{f, ann}}{\beta}
 
     Parameters
     ----------
@@ -549,7 +568,7 @@ def treynor_ratio(
     -------
     float, pd.Series, or pd.DataFrame
         Treynor Ratio.
-    """
+    r"""
     from pyperfanalytics.risk import capm_beta
 
     if scale is None:
@@ -564,7 +583,7 @@ def treynor_ratio(
 
 
 def calmar_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True) -> float | pd.Series:
-    """
+    r"""
     Calculate Calmar Ratio.
 
     Calculate the ratio of annualized return over the absolute value of the
@@ -572,7 +591,10 @@ def calmar_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, geometri
     with tail risk.
 
     Formula:
-    $$ Calmar = \frac{R_{ann}}{\\max(|D_t|)} $$
+
+    .. math::
+
+        Calmar = \frac{R_{ann}}{\\max(|D_t|)}
 
     Parameters
     ----------
@@ -587,7 +609,7 @@ def calmar_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, geometri
     -------
     float or pd.Series
         Calmar Ratio.
-    """
+    r"""
     from pyperfanalytics.drawdowns import max_drawdown
 
     if scale is None:
@@ -602,9 +624,9 @@ def calmar_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, geometri
 def up_down_ratios(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, method: str = "Capture", side: str = "Up"
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate metrics on up and down markets for the benchmark asset.
-    """
+    r"""
     # Standardize inputs
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -678,29 +700,32 @@ def up_down_ratios(
 
 
 def up_capture(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Up Capture Ratio.
-    """
+    r"""
     return up_down_ratios(Ra, Rb, method="Capture", side="Up")
 
 
 def down_capture(Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Down Capture Ratio.
-    """
+    r"""
     return up_down_ratios(Ra, Rb, method="Capture", side="Down")
 
 
 def kelly_ratio(
     R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0, method: str = "half"
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Kelly criterion ratio (leverage or bet size) for a strategy.
 
     The Kelly criterion is a formula used to determine the optimal size of a series of bets.
 
     Formula:
-    $$ KellyRatio = \frac{\\overline{R - R_f}}{\\sigma^2_R} $$
+
+    .. math::
+
+        KellyRatio = \frac{\\overline{R - R_f}}{\\sigma^2_R}
 
     Parameters
     ----------
@@ -715,7 +740,7 @@ def kelly_ratio(
     -------
     float or pd.Series
         Kelly Ratio.
-    """
+    r"""
     xR = return_excess(R, Rf)
 
     def _calc(s: pd.Series, sr: pd.Series, meth: str) -> float:
@@ -742,14 +767,17 @@ def kelly_ratio(
 
 
 def upside_potential_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0, method: str = "subset") -> float | pd.Series:
-    """
+    r"""
     Calculate Upside Potential Ratio of upside performance over downside risk.
 
     A performance measure dividing upside potential by downside deviation, similar
     to the Sortino ratio.
 
     Formula:
-    $$ UPR = \frac{\frac{1}{n} \\sum_{R>MAR} (R - MAR)}{DownsideDeviation(MAR)} $$
+
+    .. math::
+
+        UPR = \frac{\frac{1}{n} \\sum_{R>MAR} (R - MAR)}{DownsideDeviation(MAR)}
 
     Parameters
     ----------
@@ -764,7 +792,7 @@ def upside_potential_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0, method: 
     -------
     float or pd.Series
         Upside Potential Ratio.
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float, meth: str) -> float:
         s = s.dropna()
@@ -799,7 +827,7 @@ def martin_ratio(
     scale: int | None = None,
     geometric: bool = True,
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Martin ratio of the return distribution.
 
     The Martin ratio is the annualized return minus the annualized risk-free rate,
@@ -807,9 +835,12 @@ def martin_ratio(
     but penalizes drawdowns rather than volatility.
 
     Formula:
-    $$ MartinRatio = \frac{R_{ann} - R_{f,ann}}{UlcerIndex} $$
 
-    where $R_{f,ann} = (1 + R_f)^{scale} - 1$ is the annualized risk-free rate.
+    .. math::
+
+        MartinRatio = \frac{R_{ann} - R_{f,ann}}{UlcerIndex}
+
+    where :math:`R_{f,ann} = (1 + R_f)^{scale} - 1` is the annualized risk-free rate.
 
     Notes
     -----
@@ -836,7 +867,7 @@ def martin_ratio(
     -------
     float or pd.Series
         Martin ratio.
-    """
+    r"""
     from pyperfanalytics.risk import ulcer_index
 
     if scale is None:
@@ -863,16 +894,19 @@ def pain_ratio(
     scale: int | None = None,
     geometric: bool = True,
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Pain ratio of the return distribution.
 
     The Pain ratio is the annualized return minus the annualized risk-free rate,
     divided by the Pain Index.
 
     Formula:
-    $$ PainRatio = \frac{R_{ann} - R_{f,ann}}{PainIndex} $$
 
-    where $R_{f,ann} = (1 + R_f)^{scale} - 1$ is the annualized risk-free rate.
+    .. math::
+
+        PainRatio = \frac{R_{ann} - R_{f,ann}}{PainIndex}
+
+    where :math:`R_{f,ann} = (1 + R_f)^{scale} - 1` is the annualized risk-free rate.
 
     Notes
     -----
@@ -898,7 +932,7 @@ def pain_ratio(
     -------
     float or pd.Series
         Pain ratio.
-    """
+    r"""
     from pyperfanalytics.risk import pain_index
 
     if scale is None:
@@ -922,14 +956,17 @@ def pain_ratio(
 def upside_risk(
     R: pd.Series | pd.DataFrame, MAR: float = 0.0, method: str = "full", stat: str = "risk"
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate upside risk, variance, or potential.
 
     Depending on the selected stat, measures the variability or sum of returns
     above a specified Minimum Acceptable Return (MAR).
 
     Formula (Variance):
-    $$ UV = \frac{1}{n} \\sum_{R>MAR} (R - MAR)^2 $$
+
+    .. math::
+
+        UV = \frac{1}{n} \\sum_{R>MAR} (R - MAR)^2
 
     Parameters
     ----------
@@ -946,7 +983,7 @@ def upside_risk(
     -------
     float or pd.Series
         Upside risk, variance, or potential.
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float, meth: str, st: str) -> float:
         s = s.dropna()
@@ -979,20 +1016,23 @@ def upside_risk(
 
 
 def upside_potential(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Calculate upside potential.
-    """
+    r"""
     return upside_risk(R, MAR=MAR, method="full", stat="potential")
 
 
 def volatility_skewness(R: pd.Series | pd.DataFrame, MAR: float = 0.0, stat: str = "volatility") -> float | pd.Series:
-    """
+    r"""
     Calculate Volatility or Variability Skewness.
 
     A ratio comparing upside variability to downside variability.
 
     Formula (Volatility Skewness):
-    $$ VS = \frac{UpsideVariance}{DownsideVariance} $$
+
+    .. math::
+
+        VS = \frac{UpsideVariance}{DownsideVariance}
 
     Parameters
     ----------
@@ -1007,7 +1047,7 @@ def volatility_skewness(R: pd.Series | pd.DataFrame, MAR: float = 0.0, stat: str
     -------
     float or pd.Series
         Skewness metric.
-    """
+    r"""
     if stat == "volatility":
         uv = upside_risk(R, MAR=MAR, method="full", stat="variance")
         dv = downside_deviation(R, MAR=MAR, method="full") ** 2
@@ -1023,15 +1063,21 @@ def volatility_skewness(R: pd.Series | pd.DataFrame, MAR: float = 0.0, stat: str
 def omega_ratio(
     R: pd.Series | pd.DataFrame, L: float = 0.0, Rf: float = 0.0, method: str = "simple"
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Omega Ratio.
 
     The Omega Ratio divides the average return above a threshold by the average
     return below that threshold. Values above 1 signify desirable upside relative to downside risk.
 
     Formula:
-    $$ \\Omega = \frac{\\int_L^\\infty (1 - F(r)) dr}{\\int_{-\\infty}^L F(r) dr} $$
-    $$ \\Omega = \frac{\frac{1}{n} \\sum \\max(R-L, 0)}{\frac{1}{n} \\sum \\max(L-R, 0)} $$
+
+    .. math::
+
+        \\Omega = \frac{\\int_L^\\infty (1 - F(r)) dr}{\\int_{-\\infty}^L F(r) dr}
+
+    .. math::
+
+        \\Omega = \frac{\frac{1}{n} \\sum \\max(R-L, 0)}{\frac{1}{n} \\sum \\max(L-R, 0)}
 
     Parameters
     ----------
@@ -1048,7 +1094,7 @@ def omega_ratio(
     -------
     float or pd.Series
         Omega Ratio.
-    """
+    r"""
     if method != "simple":
         raise NotImplementedError("Only 'simple' method is implemented.")
 
@@ -1077,25 +1123,28 @@ def burke_ratio(
     modified: bool = False,
     scale: int | None = None,
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Burke Ratio or Modified Burke Ratio.
 
     The Burke Ratio evaluates a portfolio's return against its drawdown risk,
     squaring drawdowns to penalize larger single losses over multiple smaller ones.
 
     Formula (original Burke 1994 definition):
-    $$ BurkeRatio = \\frac{R_{ann} - R_f}{\\sqrt{\\frac{\\sum_{t=1}^d D_t^2}{d}}} $$
 
-    where $d$ is the number of distinct drawdown events. This form uses the
+    .. math::
+
+        BurkeRatio = \\frac{R_{ann} - R_f}{\\sqrt{\\frac{\\sum_{t=1}^d D_t^2}{d}}}
+
+    where :math:`d` is the number of distinct drawdown events. This form uses the
     **root-mean-square (RMS)** of drawdowns, so the denominator does not
     grow merely because there are many small drawdowns.
 
     **Notes on deviations from other implementations:**
 
     1. **Fixed vs paper**: The original Burke (1994) denominator is
-       $\\sqrt{\\Sigma D^2 / d}$ (mean of squared drawdowns). Some implementations
-       (including R's `PerformanceAnalytics::BurkeRatio`) use $\\sqrt{\\Sigma D^2}$
-       (sum, not mean), which differs by a factor of $\\sqrt{d}$.
+       :math:`\\sqrt{\\Sigma D^2 / d}` (mean of squared drawdowns). Some implementations
+       (including R's `PerformanceAnalytics::BurkeRatio`) use :math:`\\sqrt{\\Sigma D^2}`
+       (sum, not mean), which differs by a factor of :math:`\\sqrt{d}`.
        This implementation uses the mathematically correct paper definition.
     2. **Fixed vs R**: R's `BurkeRatio` multiplies each drawdown segment by `0.01`
        (expecting percentage-scale inputs, e.g. 5.0 for 5%). This implementation
@@ -1108,7 +1157,7 @@ def burke_ratio(
     Rf : float, pd.Series, or pd.DataFrame, optional
         Risk-free rate (same periodicity as R). Default is 0.0.
     modified : bool, optional
-        If True, multiplies the ratio by $\\sqrt{n}$ where $n$ is the number of periods.
+        If True, multiplies the ratio by :math:`\\sqrt{n}` where :math:`n` is the number of periods.
     scale : int, optional
         Number of periods in a year.
 
@@ -1116,7 +1165,7 @@ def burke_ratio(
     -------
     float or pd.Series
         Burke Ratio.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -1196,7 +1245,10 @@ def modigliani(
     level, expressing the Sharpe ratio in percentage terms.
 
     Formula:
-    $$ M^2 = SR_a \cdot \sigma_b + \overline{R_f} $$
+
+    .. math::
+
+        M^2 = SR_a \cdot \sigma_b + \overline{R_f}
 
     Parameters
     ----------
@@ -1211,7 +1263,7 @@ def modigliani(
     -------
     float, pd.Series, or pd.DataFrame
         M-Squared measure.
-    """
+    r"""
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
     else:
@@ -1262,14 +1314,17 @@ def modigliani(
 
 
 def mean_absolute_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate Mean Absolute Deviation (MAD).
 
     An alternative measure of dispersion around the mean, often more robust to
     outliers than standard deviation.
 
     Formula:
-    $$ MAD = \frac{1}{n} \\sum_{i=1}^n |R_i - \bar{R}| $$
+
+    .. math::
+
+        MAD = \frac{1}{n} \\sum_{i=1}^n |R_i - \bar{R}|
 
     Parameters
     ----------
@@ -1280,7 +1335,7 @@ def mean_absolute_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     -------
     float or pd.Series
         Mean absolute deviation.
-    """
+    r"""
 
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
@@ -1295,10 +1350,10 @@ def mean_absolute_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def downside_frequency(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Calculate Downside Frequency.
     Number of returns below MAR divided by total number of returns.
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float) -> float:
         s = s.dropna()
@@ -1315,11 +1370,11 @@ def downside_frequency(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float |
 def m2_sortino(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, MAR: float = 0.0, scale: int | None = None
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate M squared for Sortino.
     M2S = Rp + SortinoRatio * (DownsideRiskBenchmark - DownsideRiskPortfolio)
     All components are annualized.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1375,11 +1430,11 @@ def m_squared(
     Rf: float | pd.Series | pd.DataFrame = 0.0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate M squared.
     M2 = (Rp - Rf) * (MarketRisk / PortfolioRisk) + Rf
     Uses population standard deviation for risk (matches PerformanceAnalytics).
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1460,11 +1515,11 @@ def m_squared_excess(
     method: str = "geometric",
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate M squared excess.
     Geometric: (1 + M2) / (1 + Rbp) - 1
     Arithmetic: M2 - Rbp
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1515,11 +1570,11 @@ def net_selectivity(
     Rf: float | pd.Series | pd.DataFrame = 0.0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Net selectivity = Selectivity - diversification
     Selectivity is Jensen's alpha.
     diversification = (FamaBeta(Ra,Rb) - CAPM.beta(Ra,Rb)) * (Annualized_Rb - Rf)
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1589,9 +1644,9 @@ def net_selectivity(
 def omega_excess_return(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, MAR: float = 0.0, scale: int | None = None
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Omega excess return = Rp - 3 * SigmaD * SigmaDM
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1643,9 +1698,9 @@ def omega_excess_return(
 
 
 def omega_sharpe_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Omega-Sharpe Ratio = (UpsidePotential - DownsidePotential) / DownsidePotential
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float) -> float:
         s = s.dropna()
@@ -1664,10 +1719,10 @@ def omega_sharpe_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float |
 
 
 def downside_sharpe_ratio(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0) -> float | pd.Series:
-    """
+    r"""
     Downside Sharpe Ratio = mean(R - Rf) / (sqrt(2) * SemiSD(R))
     SemiSD is calculated wrt mean of returns (not Rf or MAR).
-    """
+    r"""
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
         rf_val = float(Rf.mean())
     else:
@@ -1691,9 +1746,9 @@ def downside_sharpe_ratio(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | p
 
 
 def return_cumulative(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
-    """
+    r"""
     Calculate a compounded (geometric) or simple cumulative return.
-    """
+    r"""
 
     def _calc(s: pd.Series, geom: bool) -> float:
         s = s.dropna()
@@ -1711,10 +1766,10 @@ def return_cumulative(R: pd.Series | pd.DataFrame, geometric: bool = True) -> fl
 
 
 def kappa(R: pd.Series | pd.DataFrame, MAR: float = 0.0, l: int = 2) -> float | pd.Series:
-    """
+    r"""
     Calculate Kappa.
     Kappa = (mean(R) - MAR) / (mean(max(MAR - R, 0)^l))^(1/l)
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float, L: int) -> float:
         s = s.dropna()
@@ -1737,12 +1792,12 @@ def kappa(R: pd.Series | pd.DataFrame, MAR: float = 0.0, l: int = 2) -> float | 
 def annualized_excess_return(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Annualized excess return.
     Geometric: (1 + Rpa) / (1 + Rba) - 1
     Arithmetic: Rpa - Rba
     where Rpa and Rba are annualized returns.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1795,10 +1850,10 @@ def annualized_excess_return(
 
 
 def bernardo_ledoit_ratio(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate Bernardo and Ledoit Ratio.
     Sum of positive returns / Absolute sum of negative returns.
-    """
+    r"""
 
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
@@ -1815,20 +1870,20 @@ def bernardo_ledoit_ratio(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def d_ratio(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate D Ratio.
     Absolute sum of negative returns / Sum of positive returns (Inverse of Bernardo-Ledoit).
-    """
+    r"""
     return 1.0 / bernardo_ledoit_ratio(R)
 
 
 def rachev_ratio(
     R: pd.Series | pd.DataFrame, alpha: float = 0.1, beta: float = 0.1, rf: float = 0.0
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Rachev Ratio.
     ETL(upper, beta) / ETL(lower, alpha).
-    """
+    r"""
 
     def _calc(s: pd.Series, a: float, b: float) -> float:
         s = s.dropna()
@@ -1860,10 +1915,10 @@ def rachev_ratio(
 
 
 def prospect_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    """
+    r"""
     Calculate Prospect Ratio.
     (Sum(pos) + 2.25 * Sum(neg) - MAR) / (DownsideDeviation * n).
-    """
+    r"""
 
     def _calc(s: pd.Series, mar: float) -> float:
         n_total = len(s)
@@ -1889,10 +1944,10 @@ def prospect_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.
 
 
 def adjusted_sharpe_ratio(R: pd.Series | pd.DataFrame, Rf: float = 0.0, scale: int | None = None) -> float | pd.Series:
-    """
+    r"""
     Calculate Adjusted Sharpe Ratio.
     Incorporates skewness and kurtosis penalty.
-    """
+    r"""
     from pyperfanalytics.utils import kurtosis, skewness
 
     if scale is None:
@@ -1921,12 +1976,12 @@ def jensen_alpha(
     Rf: float | pd.Series | pd.DataFrame = 0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Jensen's Alpha.
 
     Alpha = Rp - Rf - Beta * (Rpb - Rf)
     where Rp and Rpb are annualized returns.
-    """
+    r"""
     from pyperfanalytics.risk import capm_beta
 
     if scale is None:
@@ -2003,11 +2058,11 @@ def appraisal_ratio(
     Rf: float | pd.Series | pd.DataFrame = 0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Appraisal Ratio.
 
     Appraisal ratio = Jensen's Alpha / Specific Risk
-    """
+    r"""
     from pyperfanalytics.risk import specific_risk
 
     j_alpha = jensen_alpha(Ra, Rb, Rf=Rf, scale=scale)
@@ -2022,13 +2077,13 @@ def market_timing(
     Rf: float | pd.Series | pd.DataFrame = 0,
     method: str = "TM",
 ) -> pd.DataFrame:
-    """
+    r"""
     Estimate Market Timing models (Treynor-Mazuy or Henriksson-Merton).
 
     Method:
         "TM" - Treynor-Mazuy model
         "HM" - Henriksson-Merton model
-    """
+    r"""
     import statsmodels.api as sm
 
     # Standardize inputs
@@ -2088,12 +2143,12 @@ def prob_sharpe_ratio(
     ignore_skewness: bool = False,
     ignore_kurtosis: bool = True,
 ) -> float | pd.Series:
-    """
+    r"""
     Calculate Probabilistic Sharpe Ratio (PSR).
     Probability that the observed Sharpe Ratio is higher than the reference one.
     Adjusts for the inflationary effect of short series with skewness and kurtosis.
     Reference: Marcos Lopez de Prado. 2018. Advances in Financial Machine Learning.
-    """
+    r"""
     from scipy.stats import norm
 
     from pyperfanalytics.utils import kurtosis, skewness
@@ -2145,11 +2200,11 @@ def prob_sharpe_ratio(
 
 
 def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess: float = 0.1) -> float | pd.Series:
-    """
+    r"""
     Calculate Sterling Ratio.
 
     Sterling Ratio = Annualized Return / (Absolute Maximum Drawdown + Excess)
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -2170,11 +2225,11 @@ def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess
 
 
 def hurst_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate the Hurst Index (Simplified Rescaled Range analysis).
     H = log(m)/log(n)
     where m = [max(r_i) - min(r_i)]/sigma_p and n = number of observations
-    """
+    r"""
 
     def _calc(s: pd.Series) -> float:
         s = s.dropna()
@@ -2193,10 +2248,10 @@ def hurst_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def to_period_contributions(Contributions: pd.Series | pd.DataFrame, period: str = "years") -> pd.DataFrame:
-    """
+    r"""
     Aggregate high-frequency contributions to lower frequency.
     Valid periods: 'weeks', 'months', 'quarters', 'years', 'all'.
-    """
+    r"""
     if isinstance(Contributions, pd.Series):
         C = Contributions.to_frame()
     else:
@@ -2243,11 +2298,11 @@ def to_period_contributions(Contributions: pd.Series | pd.DataFrame, period: str
 
 
 def return_geltner(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Geltner liquidity-adjusted return series.
     Geltner.returns = (R(t) - R(t-1) * rho) / (1 - rho)
     where rho is the first-order autocorrelation of the returns.
-    """
+    r"""
 
     def _calc(s: pd.Series) -> pd.Series:
         s_clean = s.dropna()
@@ -2275,13 +2330,13 @@ def return_geltner(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
 def return_clean(
     R: pd.Series | pd.DataFrame, method: str = "boudt", alpha: float = 0.01, trim: float = 0.001
 ) -> pd.Series | pd.DataFrame:
-    """
+    r"""
     Clean extreme observations in a time series to provide robust risk estimates.
     Robustly clean a time series to reduce the magnitude of observations that exceed
     the 1-alpha risk threshold using Minimum Covariance Determinant (MCD).
 
     method: "none", "boudt", or "geltner".
-    """
+    r"""
     if method == "none":
         return R.copy()
     elif method == "geltner":
@@ -2361,10 +2416,10 @@ def return_portfolio(
     geometric: bool = True,
     rebalance_on: str = "none",
 ) -> pd.Series:
-    """
+    r"""
     Calculate weighted returns for a portfolio of assets.
     Supports geometric or arithmetic compounding with optional periodic rebalancing.
-    """
+    r"""
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
     else:

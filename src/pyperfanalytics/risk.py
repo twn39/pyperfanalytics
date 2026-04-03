@@ -6,14 +6,17 @@ from pyperfanalytics.utils import _get_scale, centered_moment, kurtosis, skewnes
 
 
 def var_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Historical Value at Risk (VaR).
 
     Computes the historical VaR (negative of the alpha-quantile) of the returns distribution.
     VaR is a measure of the risk of loss for investments.
 
     Formula:
-    $$ VaR_{hist} = -Q(R, 1-p) $$
+
+    .. math::
+
+        VaR_{hist} = -Q(R, 1-p)
 
     Parameters
     ----------
@@ -26,7 +29,7 @@ def var_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.S
     -------
     float or pd.Series
         Historical VaR value(s) (returned as positive values representing losses).
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
 
     def _calc(s: pd.Series, a: float) -> float:
@@ -42,14 +45,17 @@ def var_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.S
 
 
 def var_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Gaussian (Parametric) Value at Risk (VaR).
 
     Estimates VaR assuming a normal distribution of returns.
 
     Formula:
-    $$ VaR_{gaus} = -(\\mu + z_\alpha \\cdot \\sigma) $$
-    where $z_\alpha$ is the $\alpha$-quantile of the standard normal distribution.
+
+    .. math::
+
+        VaR_{gaus} = -(\\mu + z_\alpha \\cdot \\sigma)
+    where :math:`z_\alpha` is the :math:`\alpha`-quantile of the standard normal distribution.
 
     Parameters
     ----------
@@ -62,7 +68,7 @@ def var_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Ser
     -------
     float or pd.Series
         Gaussian VaR value(s).
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
     mu = R.mean()
     m2 = centered_moment(R, 2)
@@ -71,15 +77,18 @@ def var_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Ser
 
 
 def var_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Modified (Cornish-Fisher) Value at Risk (VaR).
 
     Adjusts Gaussian VaR to account for skewness and kurtosis in the return
     distribution using the Cornish-Fisher expansion.
 
     Formula:
-    $$ VaR_{mod} = -(\\mu + \tilde{z}_\alpha \\cdot \\sigma) $$
-    where $\tilde{z}_\alpha$ is the Cornish-Fisher expansion of the quantile.
+
+    .. math::
+
+        VaR_{mod} = -(\\mu + \tilde{z}_\alpha \\cdot \\sigma)
+    where :math:`\tilde{z}_\alpha` is the Cornish-Fisher expansion of the quantile.
 
     Parameters
     ----------
@@ -92,7 +101,7 @@ def var_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Ser
     -------
     float or pd.Series
         Modified VaR value(s).
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
 
@@ -113,13 +122,16 @@ def var_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Ser
 
 
 def es_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Historical Expected Shortfall (Conditional VaR).
 
-    Calculates the average of the worst $(1-p)$% of returns.
+    Calculates the average of the worst :math:`(1-p)`% of returns.
 
     Formula:
-    $$ ES_{hist} = -E[R | R < -VaR_{hist}] $$
+
+    .. math::
+
+        ES_{hist} = -E[R | R < -VaR_{hist}]
 
     Parameters
     ----------
@@ -132,7 +144,7 @@ def es_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Se
     -------
     float or pd.Series
         Historical Expected Shortfall.
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
 
     def _calc(s: pd.Series, a: float) -> float:
@@ -152,14 +164,17 @@ def es_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Se
 
 
 def es_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Gaussian Expected Shortfall (Conditional VaR).
 
     Estimates Expected Shortfall assuming a normal distribution.
 
     Formula:
-    $$ ES_{gaus} = -\\mu + \\sigma \frac{\\phi(z_\alpha)}{1-p} $$
-    where $\\phi$ is the standard normal PDF.
+
+    .. math::
+
+        ES_{gaus} = -\\mu + \\sigma \frac{\\phi(z_\alpha)}{1-p}
+    where :math:`\\phi` is the standard normal PDF.
 
     Parameters
     ----------
@@ -172,7 +187,7 @@ def es_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Seri
     -------
     float or pd.Series
         Gaussian Expected Shortfall.
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
     mu = R.mean()
     m2 = centered_moment(R, 2)
@@ -181,7 +196,7 @@ def es_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Seri
 
 
 def es_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    """
+    r"""
     Calculate Modified (Cornish-Fisher) Expected Shortfall.
 
     Adjusts Expected Shortfall for skewness and kurtosis.
@@ -200,7 +215,7 @@ def es_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Seri
     -------
     float or pd.Series
         Modified Expected Shortfall.
-    """
+    r"""
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
 
@@ -242,7 +257,10 @@ def tracking_error(
     between the portfolio's and benchmark's returns.
 
     Formula:
-    $$ TE = \sigma(R_a - R_b) \cdot \sqrt{scale} $$
+
+    .. math::
+
+        TE = \sigma(R_a - R_b) \cdot \sqrt{scale}
 
     Parameters
     ----------
@@ -258,7 +276,7 @@ def tracking_error(
     -------
     float, pd.Series, or pd.DataFrame
         Annualized Tracking Error.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(R)
 
@@ -308,7 +326,7 @@ def tracking_error(
 def capm_beta(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate CAPM Beta of returns against a benchmark.
 
     Beta is the ratio of the covariance of the asset's excess returns
@@ -316,7 +334,10 @@ def capm_beta(
     benchmark's excess returns. It measures the systematic risk of the portfolio.
 
     Formula:
-    $$ \beta = \frac{Cov(R_a - R_f, R_b - R_f)}{Var(R_b - R_f)} $$
+
+    .. math::
+
+        \beta = \frac{Cov(R_a - R_f, R_b - R_f)}{Var(R_b - R_f)}
 
     Parameters
     ----------
@@ -331,7 +352,7 @@ def capm_beta(
     -------
     float, pd.Series, or pd.DataFrame
         CAPM Beta value(s).
-    """
+    r"""
     from pyperfanalytics.returns import return_excess
 
     # Standardize inputs
@@ -387,15 +408,18 @@ def capm_beta(
 
 
 def ulcer_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate the Ulcer Index.
 
     The Ulcer Index is a measure of downside risk, calculating the quadratic
     mean of the drawdown magnitudes over a period.
 
     Formula:
-    $$ UI = \\sqrt{\frac{1}{n} \\sum_{i=1}^n D_i^2} $$
-    where $D_i$ is the drawdown percentage at time $i$.
+
+    .. math::
+
+        UI = \\sqrt{\frac{1}{n} \\sum_{i=1}^n D_i^2}
+    where :math:`D_i` is the drawdown percentage at time :math:`i`.
 
     Parameters
     ----------
@@ -406,7 +430,7 @@ def ulcer_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     -------
     float or pd.Series
         The Ulcer Index.
-    """
+    r"""
     from pyperfanalytics.drawdowns import drawdown_peak
 
     dp = drawdown_peak(R)
@@ -424,14 +448,17 @@ def ulcer_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
 
 
 def pain_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate the Pain Index.
 
     The Pain Index is the mean value of the drawdowns over the entire analysis period.
     It measures both the depth and duration of losses.
 
     Formula:
-    $$ PI = \frac{1}{n} \\sum_{i=1}^n |D_i| $$
+
+    .. math::
+
+        PI = \frac{1}{n} \\sum_{i=1}^n |D_i|
 
     Parameters
     ----------
@@ -442,7 +469,7 @@ def pain_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     -------
     float or pd.Series
         The Pain Index.
-    """
+    r"""
     from pyperfanalytics.drawdowns import drawdown_peak
 
     dp = drawdown_peak(R)
@@ -465,7 +492,7 @@ def specific_risk(
     Rf: float | pd.Series | pd.DataFrame = 0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Specific Risk.
 
     Specific risk (or idiosyncratic risk) is the annualized standard deviation
@@ -473,8 +500,11 @@ def specific_risk(
     of risk that is not explained by the benchmark.
 
     Formula:
-    $$ SpecificRisk = \\sigma(\\epsilon) \\cdot \\sqrt{scale} $$
-    where $\\epsilon_t = R_{a,t} - R_{f,t} - \beta(R_{b,t} - R_{f,t}) - \alpha$.
+
+    .. math::
+
+        SpecificRisk = \\sigma(\\epsilon) \\cdot \\sqrt{scale}
+    where :math:`\\epsilon_t = R_{a,t} - R_{f,t} - \beta(R_{b,t} - R_{f,t}) - \alpha`.
 
     Parameters
     ----------
@@ -491,7 +521,7 @@ def specific_risk(
     -------
     float, pd.Series, or pd.DataFrame
         Annualized Specific Risk.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -570,7 +600,10 @@ def total_risk(
     and specific risk (idiosyncratic).
 
     Formula:
-    $$ TotalRisk = \sqrt{SystematicRisk^2 + SpecificRisk^2} $$
+
+    .. math::
+
+        TotalRisk = \sqrt{SystematicRisk^2 + SpecificRisk^2}
 
     Parameters
     ----------
@@ -587,7 +620,7 @@ def total_risk(
     -------
     float, pd.Series, or pd.DataFrame
         Total Risk.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -639,15 +672,18 @@ def total_risk(
 
 
 def herfindahl_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    """
+    r"""
     Calculate Herfindahl Index based on autocorrelation.
 
     The Herfindahl Index (or Herfindahl-Hirschman Index) is used here to measure
     the concentration of autocorrelation across different lags.
 
     Formula:
-    $$ HI = \\sum_{i=1}^k \\left( \frac{\\max(0, \rho_i)}{\\sum_{j=1}^k \\max(0, \rho_j)} \right)^2 $$
-    where $\rho_i$ is the autocorrelation at lag $i$.
+
+    .. math::
+
+        HI = \\sum_{i=1}^k \\left( \frac{\\max(0, \rho_i)}{\\sum_{j=1}^k \\max(0, \rho_j)} \right)^2
+    where :math:`\rho_i` is the autocorrelation at lag :math:`i`.
 
     Parameters
     ----------
@@ -658,7 +694,7 @@ def herfindahl_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     -------
     float or pd.Series
         The Herfindahl Index.
-    """
+    r"""
     from statsmodels.tsa.stattools import acf
 
     def _calc(s: pd.Series) -> float:
@@ -698,8 +734,11 @@ def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAord
     A value of 1 implies no smoothing (highly liquid).
 
     Formula:
-    $$ \xi = \sum_{j=0}^{k} \theta_j^2 $$
-    where $\theta_j$ are the normalized coefficients of an MA(k) process fitted to the returns.
+
+    .. math::
+
+        \xi = \sum_{j=0}^{k} \theta_j^2
+    where :math:`\theta_j` are the normalized coefficients of an MA(k) process fitted to the returns.
 
     Parameters
     ----------
@@ -714,7 +753,7 @@ def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAord
     -------
     float or pd.Series
         Smoothing index value.
-    """
+    r"""
     from statsmodels.tsa.arima.model import ARIMA
 
     def _calc(s: pd.Series, neg: bool, order: int) -> float:
@@ -762,14 +801,17 @@ def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAord
 def fama_beta(
     Ra: pd.Series | pd.DataFrame, Rb: pd.Series | pd.DataFrame, scale: int | None = None
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Fama Beta.
 
     Fama beta is a measure of systemic risk based on the total risk of the
     portfolio divided by the total risk of the benchmark.
 
     Formula:
-    $$ \beta_F = \frac{\\sigma_a}{\\sigma_b} $$
+
+    .. math::
+
+        \beta_F = \frac{\\sigma_a}{\\sigma_b}
 
     Parameters
     ----------
@@ -784,7 +826,7 @@ def fama_beta(
     -------
     float, pd.Series, or pd.DataFrame
         The Fama Beta.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -842,14 +884,17 @@ def cdar_beta(
     geometric: bool = True,
     type: str | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Conditional Drawdown Beta (CDaR Beta).
 
     Sensitivity of the portfolio to extreme drawdowns in the benchmark.
 
     Formula:
-    $$ CDaR \beta = \frac{\\sum_{i=1}^k D_{a,i}}{k \\cdot CDaR_b} $$
-    where $D_{a,i}$ is the portfolio cumulative return over the benchmark's $k$ worst drawdown periods.
+
+    .. math::
+
+        CDaR \beta = \frac{\\sum_{i=1}^k D_{a,i}}{k \\cdot CDaR_b}
+    where :math:`D_{a,i}` is the portfolio cumulative return over the benchmark's :math:`k` worst drawdown periods.
 
     Parameters
     ----------
@@ -868,7 +913,7 @@ def cdar_beta(
     -------
     float, pd.Series, or pd.DataFrame
         CDaR Beta.
-    """
+    r"""
     from pyperfanalytics.drawdowns import cdd, find_drawdowns
 
     if type == "average":
@@ -982,13 +1027,16 @@ def cdar_alpha(
     type: str | None = None,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Conditional Drawdown Alpha (CDaR Alpha).
 
     Excess return over the CDaR Beta-adjusted benchmark return.
 
     Formula:
-    $$ CDaR \alpha = R_{a, annualized} - \beta_{CDaR} \\cdot R_{b, annualized} $$
+
+    .. math::
+
+        CDaR \alpha = R_{a, annualized} - \beta_{CDaR} \\cdot R_{b, annualized}
 
     Parameters
     ----------
@@ -1009,7 +1057,7 @@ def cdar_alpha(
     -------
     float, pd.Series, or pd.DataFrame
         CDaR Alpha.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1073,15 +1121,21 @@ def min_track_record(
     ignore_skewness: bool = False,
     ignore_kurtosis: bool = True,
 ) -> dict | pd.DataFrame:
-    """
+    r"""
     Calculate the Minimum Track Record Length.
 
     Computes the minimum number of observations required to establish that
     the estimated Sharpe Ratio is statistically significantly greater than a reference level.
 
     Formula:
-    $$ T_{min} = 1 + \\left[1 - \\gamma_3 \\widehat{SR} + \frac{\\gamma_4 - 1}{4} \\widehat{SR}^2 \right] \\dots $$
-    $$ \\dots \times \\left(\frac{Z_{\alpha}}{\\widehat{SR} - SR^*}\right)^2 $$
+
+    .. math::
+
+        T_{min} = 1 + \\left[1 - \\gamma_3 \\widehat{SR} + \frac{\\gamma_4 - 1}{4} \\widehat{SR}^2 \right] \\dots
+
+    .. math::
+
+        \\dots \times \\left(\frac{Z_{\alpha}}{\\widehat{SR} - SR^*}\right)^2
 
     Parameters
     ----------
@@ -1102,7 +1156,7 @@ def min_track_record(
     -------
     dict or pd.DataFrame
         Minimum track record length, significance boolean, and extra observations needed.
-    """
+    r"""
     from scipy.stats import norm
 
     from pyperfanalytics.returns import sharpe_ratio
@@ -1157,13 +1211,16 @@ def systematic_risk(
     Rf: float | pd.Series | pd.DataFrame = 0,
     scale: int | None = None,
 ) -> float | pd.Series | pd.DataFrame:
-    """
+    r"""
     Calculate Systematic Risk.
 
     The portion of total risk (standard deviation) explained by the benchmark.
 
     Formula:
-    $$ SystematicRisk = \beta \\cdot \\sigma_{b} $$
+
+    .. math::
+
+        SystematicRisk = \beta \\cdot \\sigma_{b}
 
     Parameters
     ----------
@@ -1180,7 +1237,7 @@ def systematic_risk(
     -------
     float, pd.Series, or pd.DataFrame
         Annualized Systematic Risk.
-    """
+    r"""
     if scale is None:
         scale = _get_scale(Ra)
 

@@ -15,7 +15,7 @@ def chart_cum_returns(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a cumulative returns chart using Plotly.
 
     Matches R's `chart.CumReturns` logic.
@@ -41,7 +41,7 @@ def chart_cum_returns(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -87,7 +87,7 @@ def chart_cum_returns(
 def chart_bar_returns(
     R: pd.Series | pd.DataFrame, title: str = "Returns", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
-    """
+    r"""
     Create a bar chart of period returns.
 
     Matches R's `chart.Bar` logic. Uses 'overlay' mode to maintain bar thickness.
@@ -107,7 +107,7 @@ def chart_bar_returns(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -147,7 +147,7 @@ def chart_drawdown(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a professional drawdown (underwater) chart showing losses from peak.
 
     Matches R's `chart.Drawdown` logic with enhanced interactive styling.
@@ -169,7 +169,7 @@ def chart_drawdown(
     -------
     go.Figure
         Plotly figure object with semi-transparent area fill.
-    """
+    r"""
     dd = drawdowns(R, geometric=geometric)
     if isinstance(dd, pd.Series):
         dd = dd.to_frame()
@@ -257,7 +257,7 @@ def charts_performance_summary(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a combined dashboard containing Cumulative Returns, Period Returns, and Drawdown.
 
     Matches R's `charts.PerformanceSummary` logic.
@@ -281,7 +281,7 @@ def charts_performance_summary(
     -------
     go.Figure
         Plotly figure object with 3 subplots.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -372,7 +372,7 @@ def chart_bar_var(
     show_horizontal: bool = False,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Plot periodic returns as a bar chart with interactive risk metric overlays.
 
     Matches R's `chart.BarVaR` logic.
@@ -404,7 +404,7 @@ def chart_bar_var(
     -------
     go.Figure
         Plotly figure object with bar returns and risk metric line overlays.
-    """
+    r"""
     if methods is None:
         methods = ["ModifiedVaR", "GaussianVaR"]
 
@@ -532,7 +532,7 @@ def chart_rolling_performance(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Wrapper to chart any performance metric over a rolling window.
 
     Matches R's `chart.RollingPerformance` logic.
@@ -556,7 +556,7 @@ def chart_rolling_performance(
     -------
     go.Figure
         Plotly figure object with time-series line chart.
-    """
+    r"""
     import pyperfanalytics as pa
 
     if isinstance(R, pd.Series):
@@ -604,7 +604,7 @@ def chart_var_sensitivity(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a chart of VaR and ES estimates across a range of confidence levels.
 
     Matches R's `chart.VaRSensitivity` logic. Shows how risk estimates change
@@ -627,7 +627,7 @@ def chart_var_sensitivity(
     -------
     go.Figure
         Plotly figure object showing risk metrics vs. confidence level.
-    """
+    r"""
     if methods is None:
         methods = ["GaussianVaR", "ModifiedVaR", "HistoricalVaR", "GaussianES", "ModifiedES", "HistoricalES"]
 
@@ -700,7 +700,7 @@ def chart_histogram(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a histogram of returns with optional curve fits and risk markers.
 
     Matches R's `chart.Histogram` logic.
@@ -726,7 +726,7 @@ def chart_histogram(
     -------
     go.Figure
         Plotly figure object with histogram and optional line/marker overlays.
-    """
+    r"""
     if methods is None:
         methods = ["add.density", "add.normal", "add.risk"]
 
@@ -821,7 +821,7 @@ def chart_boxplot(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a horizontal box and whiskers plot to compare return distributions.
 
     Matches R's `chart.Boxplot` logic.
@@ -845,7 +845,7 @@ def chart_boxplot(
     -------
     go.Figure
         Plotly figure object with horizontal box plots and outlier markers.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -899,7 +899,7 @@ def chart_boxplot(
 
 
 def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs) -> go.Figure:
-    """
+    r"""
     Create a Quantile-Quantile plot with a normal reference and confidence bands.
 
     Matches R's `chart.QQPlot` logic.
@@ -917,7 +917,7 @@ def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs)
     -------
     go.Figure
         Plotly figure object with scatter plot, reference line, and shaded confidence area.
-    """
+    r"""
     from scipy import stats
 
     if isinstance(R, pd.DataFrame):
@@ -988,7 +988,7 @@ def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs)
 
 def chart_correlation(
     R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs) -> go.Figure:
-    """
+    r"""
     Visualization of a Correlation Matrix with distributions and scatter plots.
 
     Matches R's `chart.Correlation` logic.
@@ -1011,7 +1011,7 @@ def chart_correlation(
     -------
     go.Figure
         Plotly figure object with N x N subplots.
-    """
+    r"""
     import numpy as np
     from scipy.stats import gaussian_kde, pearsonr
 
@@ -1127,7 +1127,7 @@ def chart_rolling_correlation(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Chart of rolling correlation between two sets of assets.
 
     Matches R's `chart.RollingCorrelation` logic.
@@ -1151,7 +1151,7 @@ def chart_rolling_correlation(
     -------
     go.Figure
         Plotly figure object showing multi-line chart of pairwise correlations.
-    """
+    r"""
     if isinstance(Ra, pd.Series):
         Ra = Ra.to_frame()
     if isinstance(Rb, pd.Series):
@@ -1198,7 +1198,7 @@ def chart_risk_return_scatter(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a risk-return scatter plot with Sharpe ratio indifference lines.
 
     Matches R's `chart.RiskReturnScatter` logic.
@@ -1226,7 +1226,7 @@ def chart_risk_return_scatter(
     -------
     go.Figure
         Plotly figure object with labeled scatter plot and reference lines.
-    """
+    r"""
     if add_sharpe is None:
         add_sharpe = [1, 2, 3]
 
@@ -1357,7 +1357,7 @@ def chart_relative_performance(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Plot the ratio of cumulative performance between two assets over time.
 
     Matches R's `chart.RelativePerformance` logic. Values > 1 indicate outperformance
@@ -1380,7 +1380,7 @@ def chart_relative_performance(
     -------
     go.Figure
         Plotly figure object with the relative performance ratio chart.
-    """
+    r"""
     if isinstance(Ra, pd.Series):
         Ra = Ra.to_frame()
     if isinstance(Rb, pd.Series):
@@ -1426,7 +1426,7 @@ def chart_capture_ratios(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Scatter plot of Upside Capture versus Downside Capture against a benchmark.
 
     Matches R's `chart.CaptureRatios` logic.
@@ -1448,7 +1448,7 @@ def chart_capture_ratios(
     -------
     go.Figure
         Plotly figure object with (1,1) benchmark crosshairs.
-    """
+    r"""
     from pyperfanalytics.returns import down_capture, up_capture
 
     if isinstance(Ra, pd.Series):
@@ -1560,7 +1560,7 @@ def chart_rolling_regression(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Chart of rolling regression performance metrics (Alpha, Beta, or R-Squared).
 
     Matches R's `chart.RollingRegression` logic.
@@ -1588,7 +1588,7 @@ def chart_rolling_regression(
     -------
     go.Figure
         Plotly figure object with rolling regression metric.
-    """
+    r"""
     from scipy import stats
 
     from pyperfanalytics.returns import return_excess
@@ -1658,7 +1658,7 @@ def charts_rolling_regression(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Dashboard with Rolling Alpha, Rolling Beta, and Rolling R-Squared charts.
 
     Matches R's `charts.RollingRegression` logic.
@@ -1684,7 +1684,7 @@ def charts_rolling_regression(
     -------
     go.Figure
         Plotly figure object with 3 subplots (Alpha, Beta, R-Squared).
-    """
+    r"""
     fig = make_subplots(
         rows=3,
         cols=1,
@@ -1721,7 +1721,7 @@ def charts_rolling_regression(
 
 
 def chart_acf(R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str | None = None, **kwargs) -> go.Figure:
-    """
+    r"""
     Create an Autocorrelation Function (ACF) chart.
 
     Matches R's `chart.ACF` logic (often called via `chart.ACFplus`).
@@ -1741,7 +1741,7 @@ def chart_acf(R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str 
     -------
     go.Figure
         Plotly figure object with ACF bars and confidence interval lines.
-    """
+    r"""
     from statsmodels.tsa.stattools import acf
 
     if isinstance(R, pd.DataFrame):
@@ -1782,7 +1782,7 @@ def chart_acf(R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str 
 def chart_acf_plus(
     R: pd.Series | pd.DataFrame, maxlag: int | None = None, main: str | None = None, **kwargs
 ) -> go.Figure:
-    """
+    r"""
     Create a chart with both ACF and PACF subplots.
 
     Matches R's `chart.ACFplus` logic.
@@ -1802,7 +1802,7 @@ def chart_acf_plus(
     -------
     go.Figure
         Plotly figure object with 2 subplots (ACF and PACF).
-    """
+    r"""
     from statsmodels.tsa.stattools import acf, pacf
 
     if isinstance(R, pd.DataFrame):
@@ -1858,7 +1858,7 @@ def chart_events(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Plots a time series with event dates aligned.
 
     Relative X-axis shows periods before and after the event. 
@@ -1885,7 +1885,7 @@ def chart_events(
     -------
     go.Figure
         Plotly figure object with aligned event traces.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -1958,7 +1958,7 @@ def chart_snail_trail(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a snail trail chart showing rolling risk-return evolution.
 
     Matches R's `chart.SnailTrail`.
@@ -1990,7 +1990,7 @@ def chart_snail_trail(
     -------
     go.Figure
         Plotly figure object showing risk-return trails.
-    """
+    r"""
     if add_sharpe is None:
         add_sharpe = [1, 2, 3]
 
@@ -2100,7 +2100,7 @@ def chart_snail_trail(
 def chart_stacked_bar(
     w: pd.Series | pd.DataFrame, main: str = "Stacked Bar Chart", colorset: list[str] | None = None, **kwargs
 ) -> go.Figure:
-    """
+    r"""
     Create a stacked bar plot.
 
     Commonly used for weights or contributions. Matches R's `chart.StackedBar`.
@@ -2120,7 +2120,7 @@ def chart_stacked_bar(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     if isinstance(w, pd.Series):
         w = w.to_frame()
 
@@ -2148,10 +2148,10 @@ def chart_component_returns(
     main: str = "Component Returns Contribution",
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Plots the contribution of each asset to the portfolio return.
 
-    Contribution is calculated as $R_i \times W_i$. Matches R's `chart.ComponentReturns`.
+    Contribution is calculated as :math:`R_i \times W_i`. Matches R's `chart.ComponentReturns`.
 
     Parameters
     ----------
@@ -2168,7 +2168,7 @@ def chart_component_returns(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     if isinstance(R, pd.Series):
         R = R.to_frame()
 
@@ -2189,7 +2189,7 @@ def chart_ecdf(
     colorset: list[str] | None = None,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create an aesthetically enhanced ECDF chart overlaid with a normal CDF.
 
     Matches R's `chart.ECDF`.
@@ -2213,7 +2213,7 @@ def chart_ecdf(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     from scipy.stats import norm
 
     if isinstance(R, pd.DataFrame):
@@ -2283,7 +2283,7 @@ def chart_scatter(
     add_regression: bool = True,
     **kwargs,
 ) -> go.Figure:
-    """
+    r"""
     Create a scatter plot with optional marginal distributions and regression line.
 
     Matches R's `chart.Scatter`.
@@ -2311,7 +2311,7 @@ def chart_scatter(
     -------
     go.Figure
         Plotly figure object.
-    """
+    r"""
     import plotly.express as px
 
     if isinstance(x, pd.DataFrame):
