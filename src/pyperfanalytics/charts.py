@@ -179,16 +179,16 @@ def chart_drawdown(
     # Standard Project Palette (Plotly defaults)
     # Using semi-transparent RGBA for "lake" overlaps to maintain professional feel
     default_colors_hex = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"]
-    
+
     def hex_to_rgba(hex_val, alpha):
-        hex_val = hex_val.lstrip('#')
+        hex_val = hex_val.lstrip("#")
         lv = len(hex_val)
-        rgb = tuple(int(hex_val[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+        rgb = tuple(int(hex_val[i : i + lv // 3], 16) for i in range(0, lv, lv // 3))
         return f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {alpha})"
 
     default_colors = [hex_to_rgba(c, 0.7) for c in default_colors_hex]
     line_colors = default_colors_hex
-    
+
     colors = colorset if colorset else default_colors
 
     for i, col in enumerate(dd.columns):
@@ -210,12 +210,7 @@ def chart_drawdown(
         )
 
     fig.update_layout(
-        title=dict(
-            text=title,
-            x=0.5,
-            xanchor="center",
-            font=dict(size=20, color="#2C2B2A")
-        ),
+        title=dict(text=title, x=0.5, xanchor="center", font=dict(size=20, color="#2C2B2A")),
         xaxis_title="Date",
         yaxis_title="Drawdown (%)",
         template="plotly_white",
@@ -224,26 +219,15 @@ def chart_drawdown(
         yaxis=dict(
             tickformat=".1%",
             zeroline=True,
-            zerolinecolor="#2C2B2A", # High-Water Mark line (Black/Dark Gray)
+            zerolinecolor="#2C2B2A",  # High-Water Mark line (Black/Dark Gray)
             zerolinewidth=2,
-            gridcolor="#ECEBEA", # Subtle light gray grid
+            gridcolor="#ECEBEA",  # Subtle light gray grid
             showgrid=True,
             ticksuffix=" ",
-            range=[min(dd.min().min() * 1.1, -0.05), 0.01] # Ensure space for labels and peaks
+            range=[min(dd.min().min() * 1.1, -0.05), 0.01],  # Ensure space for labels and peaks
         ),
-        xaxis=dict(
-            gridcolor="#ECEBEA",
-            showgrid=True,
-            linecolor="#2C2B2A"
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor="rgba(255, 255, 255, 0)"
-        ),
+        xaxis=dict(gridcolor="#ECEBEA", showgrid=True, linecolor="#2C2B2A"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(255, 255, 255, 0)"),
     )
 
     return fig
@@ -987,7 +971,8 @@ def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs)
 
 
 def chart_correlation(
-    R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs) -> go.Figure:
+    R: pd.Series | pd.DataFrame, main: str = "Correlation Matrix", method: str = "pearson", **kwargs
+) -> go.Figure:
     r"""
     Visualization of a Correlation Matrix with distributions and scatter plots.
 
@@ -1861,7 +1846,7 @@ def chart_events(
     r"""
     Plots a time series with event dates aligned.
 
-    Relative X-axis shows periods before and after the event. 
+    Relative X-axis shows periods before and after the event.
     Matches R's `chart.Events` logic.
 
     Parameters
@@ -2079,8 +2064,7 @@ def chart_snail_trail(
                     showscale=False,
                 ),
                 hovertemplate=(
-                    "<b>%{name}</b><br>Date: %{text}<br>"
-                    "Ann. Return: %{y:.4f}<br>Ann. StdDev: %{x:.4f}<extra></extra>"
+                    "<b>%{name}</b><br>Date: %{text}<br>Ann. Return: %{y:.4f}<br>Ann. StdDev: %{x:.4f}<extra></extra>"
                 ),
             )
         )
