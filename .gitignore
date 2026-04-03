@@ -13,4 +13,4 @@ wheels/
 .idea
 .DS_Store
 /images/*.png
-/images/*.jpg
+/images/*.jpgdocs/sphinx/source/_build
