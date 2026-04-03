@@ -2184,6 +2184,11 @@ def prob_sharpe_ratio(
         denominator = np.sqrt(denom_sq)
         return float(norm.cdf(numerator / denominator))
 
+    if isinstance(Rf, (pd.Series, pd.DataFrame)):
+        rf_val = float(Rf.mean()) # type: ignore
+    else:
+        rf_val = float(Rf)
+
     if isinstance(R, pd.DataFrame):
         if isinstance(refSR, (pd.Series, pd.DataFrame, list, np.ndarray)):
             # Normalize refSR to a Series matching R's columns
@@ -2197,13 +2202,12 @@ def prob_sharpe_ratio(
             results = {}
             for col in R.columns:
                 rsr_val = ref_s[col]
-                results[col] = _calc(R[col], rsr_val, Rf)
+                results[col] = _calc(R[col], rsr_val, rf_val)
             return pd.Series(results)
         else:
-            return R.apply(_calc, rsr=refSR, rf=Rf)
+            return R.apply(_calc, rsr=refSR, rf=rf_val)
     else:
-        return _calc(R, float(refSR), float(Rf)) # type: ignore
-
+        return _calc(R, float(refSR), rf_val) # type: ignore
 
 def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess: float = 0.1) -> float | pd.Series:
     r"""
