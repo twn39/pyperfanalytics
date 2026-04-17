@@ -586,7 +586,7 @@ def treynor_ratio(
         scale = _get_scale(Ra)
 
     xRa = return_excess(Ra, Rf)
-    ann_return = return_annualized(xRa, scale=scale)
+    ann_return = return_annualized(xRa, scale=scale, geometric=True)
     beta = capm_beta(Ra, Rb, Rf)
 
     # Division will handle Series/DataFrame alignment
@@ -1214,7 +1214,7 @@ def burke_ratio(
             return np.nan
 
         # Annualized return
-        rp = return_annualized(s, scale=scale)
+        rp = return_annualized(s, scale=scale, geometric=True)
 
         # Burke drawdown events
         drawdowns = _get_burke_drawdowns(s)
@@ -1305,7 +1305,7 @@ def modigliani(
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
 
-            sr_a = sharpe_ratio(a, Rf=rf_mean, annualize=False)
+            sr_a = sharpe_ratio(a, Rf=rf_mean, annualize=False, geometric=False)
             std_b = b.std(ddof=1)
 
             m2 = sr_a * std_b + rf_mean
@@ -2267,7 +2267,7 @@ def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess
         s_clean = s.dropna()
         if s_clean.empty:
             return np.nan
-        ann_ret = return_annualized(s_clean, scale=sc)
+        ann_ret = return_annualized(s_clean, scale=sc, geometric=True)
         mdd = abs(max_drawdown(s_clean))
         return ann_ret / (mdd + ex)
 
