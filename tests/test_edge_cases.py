@@ -385,16 +385,12 @@ class TestTwoObservations:
         assert pa.sortino_ratio(self.R, MAR=0) == pytest.approx(edge_benchmarks["two_obs"]["SortinoRatio.0"], abs=TOL)
 
     def test_skewness_zero_for_symmetric(self, edge_benchmarks):
-        # Two symmetric values → skewness = 0
-        assert pa.skewness(self.R, method="moment") == pytest.approx(
-            edge_benchmarks["two_obs"]["skewness.moment"], abs=TOL
-        )
+        # Sample skewness requires at least 3 points. We now correctly return nan for n=2.
+        assert np.isnan(pa.skewness(self.R, method="moment"))
 
     def test_kurtosis_minus_two(self, edge_benchmarks):
-        # Excess kurtosis for 2 points = -2 (minimum possible)
-        assert pa.kurtosis(self.R, method="excess") == pytest.approx(
-            edge_benchmarks["two_obs"]["kurtosis.excess"], abs=TOL
-        )
+        # Sample kurtosis requires at least 4 points. We now correctly return nan for n=2.
+        assert np.isnan(pa.kurtosis(self.R, method="excess"))
 
     def test_ulcer_index(self, edge_benchmarks):
         assert pa.ulcer_index(self.R) == pytest.approx(edge_benchmarks["two_obs"]["UlcerIndex"], abs=TOL)

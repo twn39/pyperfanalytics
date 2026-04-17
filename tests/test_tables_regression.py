@@ -489,8 +489,9 @@ class TestTableAnnualizedReturns:
 
     def test_sharpe_with_rf_zero(self, managers):
         ra = managers.iloc[:, 0:6]
-        result = table_annualized_returns(ra, Rf=0)
-        # Sharpe = Annualized Return / Annualized Std Dev (when Rf=0)
+        # In arithmetic compounding (geometric=False), the simple division relationship holds exactly
+        result = table_annualized_returns(ra, Rf=0, geometric=False)
+        # Sharpe = Annualized Return / Annualized Std Dev (when Rf=0 and geometric=False)
         ann_ret = result.loc["Annualized Return", "HAM1"]
         ann_std = result.loc["Annualized Std Dev", "HAM1"]
         sharpe_row = [row for row in result.index if "Sharpe" in row][0]

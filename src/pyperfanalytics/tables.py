@@ -119,7 +119,7 @@ def table_annualized_returns(
 
     sharpe_label = f"Annualized Sharpe (Rf={rf_label_str}%)"
 
-    ann_sharpe = sharpe_ratio(R, Rf=Rf, annualize=True, scale=scale)
+    ann_sharpe = sharpe_ratio(R, Rf=Rf, annualize=True, scale=scale, geometric=geometric)
 
     # Combine into a table
     if isinstance(R, pd.Series):

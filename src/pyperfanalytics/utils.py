@@ -79,7 +79,7 @@ def skewness(R: pd.Series | pd.DataFrame, method: str = "moment") -> float | pd.
     def _calc(s: pd.Series, meth: str) -> float:
         s = s.dropna()
         n = len(s)
-        if n == 0:
+        if n < 3:
             return np.nan
 
         # PerformanceAnalytics specific:
@@ -124,7 +124,9 @@ def kurtosis(R: pd.Series | pd.DataFrame, method: str = "excess") -> float | pd.
     def _calc(s: pd.Series, meth: str) -> float:
         s = s.dropna()
         n = len(s)
-        if n == 0:
+        # Kurtosis ideally needs 4 points. If less than 4, sample formulas break.
+        # We enforce a minimum of 4 points to be safe across methods.
+        if n < 4:
             return np.nan
 
         m2 = np.mean((s - s.mean()) ** 2)

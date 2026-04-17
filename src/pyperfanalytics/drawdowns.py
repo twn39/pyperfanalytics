@@ -380,11 +380,11 @@ def sort_drawdowns(runs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
 def drawdown_peak(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     r"""
     Replicate R's DrawdownPeak logic.
-    This function assumes returns are in percent (multiplies/divides by 100).
+    This function tracks drawdown since the last peak.
     It is used by UlcerIndex and PainIndex in PerformanceAnalytics.
 
-    Implementation is O(n) using a single forward pass to maintain the
-    cumulative wealth index relative to the last new peak.
+    Implementation follows R's vectorized accumulation to ensure 
+    exact matching with continuous compounding drawdowns.
     r"""
 
     def _calc(s: pd.Series) -> pd.Series:
@@ -393,18 +393,13 @@ def drawdown_peak(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
         if n == 0:
             return pd.Series([], dtype=float)
 
-        res = np.zeros(n)
-        # Track cumulative wealth relative to the current peak start
-        cum_wealth = 1.0  # wealth index since last peak reset
-
-        for i in range(n):
-            cum_wealth *= 1.0 + s.iloc[i] / 100.0
-            if cum_wealth > 1.0:
-                # New high: reset and record 0 drawdown
-                cum_wealth = 1.0
-                res[i] = 0.0
-            else:
-                res[i] = (cum_wealth - 1.0) * 100.0
+        # R's DrawdownPeak logic:
+        # cumm.x <- cumprod(1 + x)
+        # max.cumm.x <- cummax(c(1, cumm.x))[-1]
+        # drawdown <- cumm.x / max.cumm.x - 1
+        cumm_x = (1.0 + s).cumprod()
+        max_cumm_x = np.maximum.accumulate(np.insert(cumm_x.values, 0, 1.0))[1:]
+        res = (cumm_x / max_cumm_x) - 1.0
 
         return pd.Series(res, index=s.index)
 
@@ -413,8 +408,9 @@ def drawdown_peak(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     else:
         return _calc(R)
 
-
-def cdd(R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, invert: bool = True) -> float | pd.Series:
+def cdd(
+    R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, invert: bool = True, method: str = "discrete"
+) -> float | pd.Series | pd.DataFrame:
     r"""
     Calculate Uryasev's proposed Conditional Drawdown at Risk (CDD or CDaR) measure.
 
@@ -437,6 +433,8 @@ def cdd(R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, in
         Use geometric compounding. Default is True.
     invert : bool, optional
         If True, inverts the sign to present risk as a positive number (like R).
+    method : str, optional
+        The calculation method: "discrete" (default) or "average" or "quantile".
 
     Returns
     -------
@@ -444,7 +442,7 @@ def cdd(R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, in
         The CDD risk value.
     r"""
 
-    def _calc(s: pd.Series, prob: float) -> float:
+    def _calc(s: pd.Series, prob: float, meth: str) -> float:
         s = s.dropna()
         if len(s) == 0:
             return np.nan
@@ -452,18 +450,42 @@ def cdd(R: pd.Series | pd.DataFrame, p: float = 0.95, geometric: bool = True, in
         if prob > 0.5:
             prob = 1 - prob
 
-        dd_info = find_drawdowns(s, geometric=geometric)
-        returns = dd_info["return"]
-        if len(returns) == 0:
-            return 0.0
+        if meth == "quantile":
+            dd_info = find_drawdowns(s, geometric=geometric)
+            returns = dd_info["return"]
+            if len(returns) == 0:
+                return 0.0
+            val = np.quantile(returns, prob)
+        elif meth == "discrete":
+            dd_info = find_drawdowns(s, geometric=geometric)
+            returns = dd_info["return"]
+            if len(returns) == 0:
+                return 0.0
+            q_val = np.quantile(returns, prob)
+            # mean of drawdowns <= q_val
+            returns_exceed = returns[returns <= q_val]
+            val = returns_exceed.mean() if len(returns_exceed) > 0 else np.nan
+        elif meth == "average":
+            dd = drawdown_peak(s) if geometric else s.cumsum() - s.cumsum().cummax()
+            # To be strictly identical to PA's geometric vs non-geometric
+            # R does `Drawdowns(R, geometric=geometric)`. `Drawdowns` uses cumprod vs cumsum.
+            # We'll use our drawdowns function directly on the series.
+            from pyperfanalytics.drawdowns import drawdowns as compute_dd
+            dd = compute_dd(s, geometric=geometric).dropna()
+            if len(dd) == 0:
+                return 0.0
+            # R uses type=8 quantile for average
+            # numpy's closest to R type 8 is 'median_unbiased'
+            q_val = np.quantile(dd, prob, method="median_unbiased")
+            val = dd[dd <= q_val].mean()
+        else:
+            raise ValueError(f"Unknown CDD method: {meth}")
 
-        # PerformanceAnalytics just uses quantile
-        val = np.quantile(returns, prob)
         if invert:
             return float(-val)
         return float(val)
 
     if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, prob=p)
+        return R.apply(_calc, prob=p, meth=method)
     else:
-        return _calc(R, p)
+        return _calc(R, p, method)

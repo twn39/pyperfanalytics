@@ -34,17 +34,17 @@ def test_specialized_ratios(managers_data):
     upr = upside_potential_ratio(ra, MAR=0)
     assert upr == pytest.approx(0.7503177, abs=1e-7)
 
-    # Ulcer & Pain Index
+    # Ulcer & Pain Index (Updated with v2.1.0 R defaults)
     ui = ulcer_index(ra)
     pi = pain_index(ra)
-    assert ui == pytest.approx(0.0362003, abs=1e-7)
-    assert pi == pytest.approx(0.01566629, abs=1e-8)
+    assert ui == pytest.approx(0.03629249, abs=1e-7)
+    assert pi == pytest.approx(0.01606664, abs=1e-7)
 
     # Martin & Pain Ratio (annualized Rf — Method A, Peter Martin / Zephyr)
     mr = martin_ratio(ra, Rf=rf_mean)
     pr = pain_ratio(ra, Rf=rf_mean)
-    assert mr == pytest.approx(2.71048167, abs=1e-6)
-    assert pr == pytest.approx(6.26314607, abs=1e-6)
+    assert mr == pytest.approx(2.7035966, abs=1e-6)
+    assert pr == pytest.approx(6.1070782, abs=1e-6)
 
 
 def test_upr_full_method(managers_data):

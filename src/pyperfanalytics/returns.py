@@ -275,6 +275,7 @@ def sharpe_ratio(
     FUN: str = "StdDev",
     annualize: bool = False,
     scale: int | None = None,
+    geometric: bool = False,
 ) -> float | pd.Series | pd.DataFrame:
     r"""
     Calculate the Sharpe Ratio.
@@ -316,27 +317,35 @@ def sharpe_ratio(
     # Calculate excess returns
     xR = return_excess(R, Rf)
 
+    def _get_return(s: pd.Series | pd.DataFrame) -> float | pd.Series | pd.DataFrame:
+        if annualize:
+            return return_annualized(s, scale=scale, geometric=geometric)
+        else:
+            if geometric:
+                # Geometric mean: prod(1+xR)^(1/n) - 1
+                if isinstance(s, pd.DataFrame):
+                    return s.apply(lambda col: np.expm1(np.log1p(col.dropna()).mean()))
+                else:
+                    return np.expm1(np.log1p(s.dropna()).mean())
+            else:
+                return s.mean()
+
+    ret = _get_return(xR)
+
     if FUN == "StdDev":
         if annualize:
-            # R is used for risk calculation, xR for return
-            ann_return = return_annualized(xR, scale=scale)
-            ann_risk = std_dev_annualized(R, scale=scale)
-            return ann_return / ann_risk
+            # Both return and risk are computed on xR (excess returns)
+            ann_risk = std_dev_annualized(xR, scale=scale)
+            return ret / ann_risk
         else:
-            return xR.mean() / R.std()
+            return ret / xR.std()
     elif FUN == "VaR":
         # Default VaR in PA's SharpeRatio is 'modified'
-        risk = var_modified(R, p=p)
-        if annualize:
-            return return_annualized(xR, scale=scale) / risk  # Note: PA's annualization for VaR-Sharpe is a bit simple
-        else:
-            return xR.mean() / risk
+        risk = var_modified(xR, p=p)
+        return ret / risk
     elif FUN == "ES":
-        risk = es_modified(R, p=p)
-        if annualize:
-            return return_annualized(xR, scale=scale) / risk
-        else:
-            return xR.mean() / risk
+        risk = es_modified(xR, p=p)
+        return ret / risk
     elif FUN == "SemiSD":
         # R's SharpeRatio(FUN="SemiSD") calls DownsideSharpeRatio.
         # DSR uses SemiDeviation (MAR=mean(R), method="full") as the risk measure.
@@ -347,8 +356,7 @@ def sharpe_ratio(
         else:
             risk = downside_deviation(R, MAR=R.mean(), method="full")
 
-        mu = xR.mean()
-        return mu / (risk * np.sqrt(2))
+        return ret / (risk * np.sqrt(2))
     else:
         raise NotImplementedError(f"Function {FUN} not yet implemented.")
 
@@ -1442,16 +1450,16 @@ def m_squared(
         scale = _get_scale(Ra)
 
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        rf_mean = Rf.mean()
-        # Ensure rf_mean is a float if it was a single series/df
-        if isinstance(rf_mean, pd.Series):
-            rf_mean = rf_mean.iloc[0]
+        # R's MSquared uses Rf directly (not annualized) which is mathematically incorrect when Rp is annualized.
+        # We enforce mathematical correctness by annualizing Rf.
+        rf_ann = return_annualized(Rf, scale=scale, geometric=True)
+        # Ensure rf_ann is a float if it was a single series
+        if isinstance(rf_ann, pd.Series):
+            rf_ann = rf_ann.iloc[0]
     else:
-        rf_mean = Rf
-        # R's MSquared uses Rf directly (not annualized). Formula: (Rp - Rf)*σm/σp + Rf.
-        # Users should pass Rf at the same scale as Rp (i.e., annualized or 0).
+        rf_ann = (1 + float(Rf)) ** scale - 1
 
-    rf_val = float(rf_mean)
+    rf_val = float(rf_ann)
 
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -1585,9 +1593,12 @@ def net_selectivity(
         scale = _get_scale(Ra)
 
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        rf_val = float(Rf.mean()) # type: ignore
+        rf_ann = return_annualized(Rf, scale=scale, geometric=True)
+        if isinstance(rf_ann, pd.Series):
+            rf_ann = rf_ann.iloc[0]
+        rf_val = float(rf_ann)
     else:
-        rf_val = float(Rf)
+        rf_val = (1 + float(Rf)) ** scale - 1
 
     if isinstance(Ra, pd.Series):
         ra_df = Ra.to_frame()
@@ -1625,9 +1636,9 @@ def net_selectivity(
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
 
-            sel = jensen_alpha(a, b, Rf=rf_val, scale=scale)
+            sel = jensen_alpha(a, b, Rf=Rf, scale=scale)
             f_beta = fama_beta(a, b, scale=scale)
-            c_beta = capm_beta(a, b, Rf=rf_val)
+            c_beta = capm_beta(a, b, Rf=Rf)
             rb_ann = return_annualized(b, scale=scale)
 
             d = (f_beta - c_beta) * (rb_ann - rf_val)
@@ -2034,15 +2045,16 @@ def jensen_alpha(
 
             beta = capm_beta(a, b, Rf=Rf)
 
-            # Use mean Rf if Rf is a series
-            # R's CAPM.jensenAlpha formula: result = Rp - Rf - beta * (Rpb - Rf)
-            # where Rp and Rpb are annualized but Rf is used as-is (NOT annualized).
-            # This is R's convention: users pass Rf at the same rate as Rp (e.g., annualized 0.035)
-            # or pass 0 as the default. The previous Rf.mean()*scale was incorrect.
+            # R's CAPM.jensenAlpha formula (since v2.1.0): result = Rp - Rf - beta * (Rpb - Rf)
+            # where Rp, Rpb, and Rf are ALL correctly annualized.
             if isinstance(Rf, (pd.Series, pd.DataFrame)):
-                rf_val = float(Rf.mean()) # type: ignore
+                rf_s = Rf.loc[a.index].dropna()
+                if len(rf_s) > 0:
+                    rf_val = float((1 + rf_s).prod() ** (scale / len(rf_s)) - 1)
+                else:
+                    rf_val = 0.0
             else:
-                rf_val = float(Rf)
+                rf_val = (1 + float(Rf)) ** scale - 1
 
             j_alpha = rp - rf_val - beta * (rpb - rf_val)
             col_results.append(j_alpha)
@@ -2166,7 +2178,7 @@ def prob_sharpe_ratio(
             return np.nan
 
         # Periodic SR (non-annualized)
-        sr = sharpe_ratio(s, Rf=rf, annualize=False)
+        sr = sharpe_ratio(s, Rf=rf, annualize=False, geometric=False)
 
         # Moments
         sk = skewness(s) if not ignore_skewness else 0.0
@@ -2184,11 +2196,6 @@ def prob_sharpe_ratio(
         denominator = np.sqrt(denom_sq)
         return float(norm.cdf(numerator / denominator))
 
-    if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        rf_val = float(Rf.mean()) # type: ignore
-    else:
-        rf_val = float(Rf)
-
     if isinstance(R, pd.DataFrame):
         if isinstance(refSR, (pd.Series, pd.DataFrame, list, np.ndarray)):
             # Normalize refSR to a Series matching R's columns
@@ -2202,12 +2209,48 @@ def prob_sharpe_ratio(
             results = {}
             for col in R.columns:
                 rsr_val = ref_s[col]
-                results[col] = _calc(R[col], rsr_val, rf_val)
+                # Pass Rf directly, handling potential series
+                rf_for_col = Rf.loc[R[col].index] if isinstance(Rf, pd.Series) else Rf
+                s = R[col].dropna()
+                n = len(s)
+                if n <= 2:
+                    results[col] = np.nan
+                    continue
+                sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
+                sk_val = skewness(s) if not ignore_skewness else 0.0
+                kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
+                num = (sr_val - rsr_val) * np.sqrt(n - 1)
+                den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
+                results[col] = float(norm.cdf(num / den))
             return pd.Series(results)
         else:
-            return R.apply(_calc, rsr=refSR, rf=rf_val)
+            results = {}
+            for col in R.columns:
+                rf_for_col = Rf.loc[R[col].index] if isinstance(Rf, pd.Series) else Rf
+                s = R[col].dropna()
+                n = len(s)
+                if n <= 2:
+                    results[col] = np.nan
+                    continue
+                sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
+                sk_val = skewness(s) if not ignore_skewness else 0.0
+                kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
+                num = (sr_val - float(refSR)) * np.sqrt(n - 1)
+                den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
+                results[col] = float(norm.cdf(num / den))
+            return pd.Series(results)
     else:
-        return _calc(R, float(refSR), rf_val) # type: ignore
+        rf_for_col = Rf.loc[R.index] if isinstance(Rf, pd.Series) else Rf
+        s = R.dropna()
+        n = len(s)
+        if n <= 2:
+            return np.nan
+        sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
+        sk_val = skewness(s) if not ignore_skewness else 0.0
+        kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
+        num = (sr_val - float(refSR)) * np.sqrt(n - 1) # type: ignore
+        den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
+        return float(norm.cdf(num / den))
 
 def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess: float = 0.1) -> float | pd.Series:
     r"""
@@ -2238,7 +2281,9 @@ def hurst_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
     r"""
     Calculate the Hurst Index (Simplified Rescaled Range analysis).
     H = log(m)/log(n)
-    where m = [max(r_i) - min(r_i)]/sigma_p and n = number of observations
+    where m = [max(z_i) - min(z_i)]/sigma_p,
+    z_i = sum(r_j - mean(r)) for j=1 to i,
+    and n = number of observations.
     r"""
 
     def _calc(s: pd.Series) -> float:
@@ -2246,7 +2291,14 @@ def hurst_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
         n = len(s)
         if n < 2:
             return np.nan
-        m = (s.max() - s.min()) / s.std()
+        
+        # Demean the returns
+        s_demean = s - s.mean()
+        # Compute cumulative sum of demeaned returns
+        z = s_demean.cumsum()
+        
+        # Rescaled Range
+        m = (z.max() - z.min()) / s.std(ddof=1)
         if m <= 0:
             return np.nan
         return np.log(m) / np.log(n)

@@ -379,14 +379,9 @@ def capm_beta(
             a = xRa[ra_col]
             b = xRb[rb_col]
 
-            # Match R's strict NA handling
-            if a.isna().any() or b.isna().any():
-                col_results.append(np.nan)
-                continue
-
-            # Align xRa and xRb
+            # Align xRa and xRb by pairwise deletion
             merged = pd.concat([a, b], axis=1).dropna()
-            if merged.empty:
+            if merged.empty or len(merged) < 2:
                 col_results.append(np.nan)
                 continue
 
@@ -769,8 +764,9 @@ def smoothing_index(R: pd.Series | pd.DataFrame, neg_thetas: bool = False, MAord
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=ValueWarning)
                 warnings.filterwarnings("ignore", category=ConvergenceWarning)
-                # R arima(..., include.mean=FALSE)
-                model = ARIMA(s, order=(0, 0, order), enforce_invertibility=True, trend="n")
+                # R arima(..., include.mean=FALSE) applied to demeaned returns
+                s_demeaned = s - s.mean()
+                model = ARIMA(s_demeaned, order=(0, 0, order), enforce_invertibility=True, trend="n")
                 res = model.fit()
 
             # statsmodels params for MA components are 'ma.L1', 'ma.L2'...
