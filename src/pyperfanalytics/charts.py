@@ -487,7 +487,7 @@ def chart_bar_var(
             fig.add_trace(
                 go.Scatter(
                     x=risk_series.index,
-                    y=-risk_series.values,
+                    y=-np.array(risk_series.values),
                     mode="lines",
                     name=f"{method} (Upper)",
                     line=dict(color=color, dash="dash", width=1),
@@ -924,7 +924,7 @@ def chart_qqplot(R: pd.Series | pd.DataFrame, main: str | None = None, **kwargs)
     # Based on the formula: SE(q) = (1/f(q)) * sqrt(p(1-p)/n)
     # For a normal distribution, f(q) is the PDF.
     p = stats.norm.cdf(x_range)
-    se = (1.0 / stats.norm.pdf(x_range)) * np.sqrt(p * (1 - p) / n) * slope
+    se = (1.0 / stats.norm.pdf(x_range)) * np.sqrt(p * (1 - p) / n) * float(slope)
 
     fig.add_trace(
         go.Scatter(
@@ -1065,7 +1065,8 @@ def chart_correlation(
 
             else:
                 # --- Upper Triangle: Correlation Text ---
-                r, p = pearsonr(x_data, y_data)
+                res = pearsonr(x_data, y_data)
+                r, p = float(res[0]), float(res[1])
 
                 # Significance stars
                 stars = ""
@@ -1593,7 +1594,7 @@ def chart_rolling_regression(
     for col_a in xRa.columns:
         for col_b in xRb.columns:
             # Align
-            merged = pd.concat([xRa[col_a], xRb[col_b]], axis=1).dropna()
+            merged = pd.concat([xRa[col_a].to_frame(), xRb[col_b].to_frame()], axis=1).dropna()
             if len(merged) < width:
                 continue
 
@@ -1611,7 +1612,7 @@ def chart_rolling_regression(
                     elif attribute == "Beta":
                         vals.append(slope)
                     elif attribute == "R-Squared":
-                        vals.append(r_value**2)
+                        vals.append(float(r_value)**2)
                     else:
                         raise ValueError(f"Unknown attribute: {attribute}")
 
@@ -1686,13 +1687,15 @@ def charts_rolling_regression(
     # 2. Beta
     f_beta = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="Beta", colorset=colorset)
     for trace in f_beta.data:
-        trace.showlegend = False  # Only show legend once
+        if hasattr(trace, "showlegend"):
+            trace.showlegend = False  # type: ignore
         fig.add_trace(trace, row=2, col=1)
 
     # 3. R-Squared
     f_r2 = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="R-Squared", colorset=colorset)
     for trace in f_r2.data:
-        trace.showlegend = False
+        if hasattr(trace, "showlegend"):
+            trace.showlegend = False  # type: ignore
         fig.add_trace(trace, row=3, col=1)
 
     fig.update_layout(height=900, title_text=main, template="plotly_white", hovermode="x unified")
@@ -1821,9 +1824,9 @@ def chart_acf_plus(
 
     # Add CI lines to both
     for r in [1, 2]:
-        fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
-        fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
-        fig.add_hline(y=0, line_color="black", row=r, col=1)
+        fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1) # type: ignore
+        fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1) # type: ignore
+        fig.add_hline(y=0, line_color="black", row=r, col=1) # type: ignore
 
     fig.update_layout(
         height=700,
@@ -2314,18 +2317,20 @@ def chart_scatter(
 
     # Align data
     df_plot = pd.concat([x_series, y_series], axis=1).dropna()
-    df_plot.columns = [x_name, y_name]
+    x_name_str = str(x_name)
+    y_name_str = str(y_name)
+    df_plot.columns = [x_name_str, y_name_str]
 
     fig = px.scatter(
         df_plot,
-        x=x_name,
-        y=y_name,
+        x=x_name_str,
+        y=y_name_str,
         marginal_x=marginal,
         marginal_y=marginal,
         trendline="ols" if add_regression else None,
         template="plotly_white",
         title=main,
-        labels={x_name: xlab or x_name, y_name: ylab or y_name},
+        labels={x_name_str: xlab or x_name_str, y_name_str: ylab or y_name_str},
     )
 
     # Styling regression line if present

@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from pyperfanalytics import active_premium, information_ratio, tracking_error
@@ -13,11 +14,15 @@ def test_active_metrics_managers(managers_data):
     }
 
     ra = managers_data[["HAM1", "HAM2"]]
-    rb = managers_data[["SP500 TR"]]
+    rb = managers_data["SP500 TR"]
 
     te_py = tracking_error(ra, rb)
     ap_py = active_premium(ra, rb)
     ir_py = information_ratio(ra, rb)
+
+    assert isinstance(te_py, pd.Series)
+    assert isinstance(ap_py, pd.Series)
+    assert isinstance(ir_py, pd.Series)
 
     for asset in ["HAM1", "HAM2"]:
         assert te_py[asset] == pytest.approx(r_results["TE"][asset], abs=1e-6)

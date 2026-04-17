@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from pyperfanalytics.returns import capm_alpha
@@ -28,5 +29,6 @@ def test_capm_beta_multiple(managers_data):
     rf = managers_data["US 3m TR"]
 
     beta = capm_beta(ra, rb, Rf=rf)
+    assert isinstance(beta, pd.Series)
     assert len(beta) == 2
     assert beta["HAM1"] == pytest.approx(0.3900712, abs=1e-6)

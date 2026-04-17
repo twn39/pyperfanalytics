@@ -102,18 +102,21 @@ def test_chart_correlation(sample_data):
     fig = pa_charts.chart_correlation(sample_data)
     assert isinstance(fig, go.Figure)
     # The correlation chart is a subplot matrix of scatter/histograms, not a single heatmap
+    assert isinstance(fig.data, tuple)
     assert fig.data[0].type in ["histogram", "scatter"]
 
 
 def test_chart_rolling_correlation(sample_data):
     fig = pa_charts.chart_rolling_correlation(sample_data[["Asset_A", "Asset_B"]], sample_data[["Benchmark"]], width=20)
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     assert len(fig.data) == 2
 
 
 def test_chart_risk_return_scatter(sample_data):
     fig = pa_charts.chart_risk_return_scatter(sample_data)
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     assert fig.data[0].type == "scatter"
 
 
@@ -130,6 +133,7 @@ def test_chart_capture_ratios(sample_data):
 def test_chart_rolling_regression(sample_data):
     fig = pa_charts.chart_rolling_regression(sample_data["Asset_A"], sample_data["Benchmark"], width=20)
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     # Default is Beta. One asset, one benchmark -> 1 trace
     assert len(fig.data) == 1
 
@@ -142,12 +146,14 @@ def test_charts_rolling_regression(sample_data):
 def test_chart_acf(sample_data):
     fig = pa_charts.chart_acf(sample_data["Asset_A"])
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     assert fig.data[0].type == "bar"  # ACF bars
 
 
 def test_chart_acf_plus(sample_data):
     fig = pa_charts.chart_acf_plus(sample_data["Asset_A"])
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     # ACF and PACF subplots
     assert len(fig.data) >= 2
 
@@ -178,6 +184,7 @@ def test_chart_component_returns(sample_data):
 def test_chart_ecdf(sample_data):
     fig = pa_charts.chart_ecdf(sample_data[["Asset_A", "Asset_B"]])
     assert isinstance(fig, go.Figure)
+    assert isinstance(fig.data, tuple)
     assert len(fig.data) == 2
 
 
