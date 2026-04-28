@@ -11,7 +11,6 @@ from pyperfanalytics.drawdowns import (
     sort_drawdowns,
 )
 from pyperfanalytics.returns import (
-    _get_scale,
     active_premium,
     burke_ratio,
     calmar_ratio,
@@ -54,8 +53,8 @@ from pyperfanalytics.risk import (
     var_historical,
     var_modified,
 )
-from pyperfanalytics.utils import _get_scale as _get_utils_scale
 from pyperfanalytics.utils import (
+    _get_scale,
     beta_co_kurtosis,
     beta_co_skewness,
     beta_co_variance,
@@ -836,7 +835,7 @@ def table_information_ratio(
         A table showing Periodic Tracking Error, Annualized Tracking Error, and Information Ratio.
     r"""
     if scale is None:
-        scale = _get_utils_scale(Ra)
+        scale = _get_scale(Ra)
 
     # Standardize inputs
     if isinstance(Ra, pd.Series):
@@ -1063,7 +1062,7 @@ def table_distributions(R: pd.Series | pd.DataFrame, scale: int | None = None, d
     Table of standard deviation, Skewness, Kurtosis, etc.
     r"""
     if scale is None:
-        scale = _get_utils_scale(R)
+        scale = _get_scale(R)
 
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
@@ -1137,7 +1136,7 @@ def table_downside_risk_ratio(
         Downside ratios and statistics matrix.
     r"""
     if scale is None:
-        scale = _get_utils_scale(R)
+        scale = _get_scale(R)
 
     if isinstance(R, pd.Series):
         r_df = R.to_frame()
@@ -1191,7 +1190,7 @@ def table_drawdowns_ratio(
     Table of Sterling ratio, Calmar ratio, Burke ratio, etc.
     r"""
     if scale is None:
-        scale = _get_utils_scale(R)
+        scale = _get_scale(R)
 
     if isinstance(R, pd.Series):
         r_df = R.to_frame()

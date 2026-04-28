@@ -63,11 +63,11 @@ def chart_cum_returns(
         else:
             cum_ret = (1 - one) + series.cumsum()
 
-        # Add a starting point of (1-one) if not already there
-        # R's chart.CumReturns often adds a starting point at the axis
-        series.index[0]
-        # To make it look like R, we might want to prepend a 0/1 at the period before
-        # but for now let's keep it simple.
+        # NOTE: R's chart.CumReturns optionally prepends a synthetic t=0 starting
+        # point (value = 0 for returns mode, or 1 for wealth-index mode), making
+        # the line originate from the X-axis.  This Python implementation begins at
+        # the first return period and does not add a t=0 row.  Future work: add a
+        # 'begin_first' parameter to replicate that behaviour.
 
         color = colorset[i % len(colorset)] if colorset else None
 
