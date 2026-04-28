@@ -3,6 +3,32 @@ import pandas as pd
 
 from pyperfanalytics.utils import _get_scale
 
+# ---------------------------------------------------------------------------
+# Backward-compatibility re-exports from pyperfanalytics.core
+# ---------------------------------------------------------------------------
+# The 16 foundational functions below were extracted to core.py (M4 Phase 1).
+# They are re-imported here so that any existing code using
+#   ``from pyperfanalytics.returns import return_annualized``
+# continues to work without modification.
+from pyperfanalytics.core import (  # noqa: E402 F401
+    downside_deviation,
+    downside_frequency,
+    downside_potential,
+    gain_deviation,
+    loss_deviation,
+    mean_absolute_deviation,
+    return_annualized,
+    return_calculate,
+    return_cumulative,
+    return_excess,
+    semi_deviation,
+    semi_variance,
+    std_dev_annualized,
+    upside_potential,
+    upside_risk,
+    volatility_skewness,
+)
+
 
 def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete") -> pd.Series | pd.DataFrame:
     r"""
@@ -42,23 +68,33 @@ def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete")
 def return_excess(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0) -> pd.Series | pd.DataFrame:
     r"""
     Calculate excess returns by subtracting the risk-free rate.
+
+    When ``Rf`` is a ``pd.Series`` or ``pd.DataFrame``, it is forward-filled and
+    aligned to ``R``'s index before subtraction. Both single- and multi-column
+    ``Rf`` inputs are handled safely even when ``Rf`` spans a wider date range than
+    ``R``.
     r"""
     if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        # R implementation uses na.locf on Rf and aligns it to R
-        # We merge them to ensure alignment
+        # Merge to get a common index; Rf dates outside R are ignored after alignment.
         combined = pd.concat([R, Rf], axis=1, sort=False)
-        # Assuming the last column(s) are Rf
         rf_cols = Rf.columns if isinstance(Rf, pd.DataFrame) else [Rf.name]
-        # Forward fill Rf
+        # Forward-fill Rf gaps (matches R's na.locf behaviour)
         combined[rf_cols] = combined[rf_cols].ffill()
-        # Subtract Rf from R columns
-        # If Rf is a single series, subtract it from all R columns
+
         if len(rf_cols) == 1:
+            # Single Rf column: pandas aligns by index automatically
             res = R.sub(combined[rf_cols[0]], axis=0)
         else:
-            # Match columns if possible, or assume 1-to-1 mapping
-            res = R.sub(combined[rf_cols].values, axis=0)
+            # Multiple Rf columns: align to R's index BEFORE converting to
+            # a plain NumPy array so row counts always match, even when Rf
+            # extends beyond R's date range.
+            rf_aligned = combined.loc[R.index, rf_cols]
+            if isinstance(R, pd.DataFrame):
+                res = R.sub(rf_aligned.values, axis=0)
+            else:
+                res = R - rf_aligned.iloc[:, 0]
 
+        # Return only rows present in the original R
         return res.loc[R.index] if isinstance(R, pd.DataFrame) else res[R.index]
 
     return R - Rf
@@ -2157,100 +2193,86 @@ def market_timing(
 def prob_sharpe_ratio(
     R: pd.Series | pd.DataFrame,
     refSR: float | pd.Series | pd.DataFrame,
-    Rf: float = 0.0,
+    Rf: float | pd.Series = 0.0,
     ignore_skewness: bool = False,
     ignore_kurtosis: bool = True,
 ) -> float | pd.Series:
     r"""
     Calculate Probabilistic Sharpe Ratio (PSR).
-    Probability that the observed Sharpe Ratio is higher than the reference one.
-    Adjusts for the inflationary effect of short series with skewness and kurtosis.
-    Reference: Marcos Lopez de Prado. 2018. Advances in Financial Machine Learning.
+
+    Probability that the observed Sharpe Ratio is higher than a reference SR,
+    adjusting for the inflation effect of short return histories with non-normal
+    skewness and kurtosis.
+
+    Formula:
+
+    .. math::
+
+        PSR(\widehat{SR}^*) = \Phi\left(
+            \frac{(\widehat{SR} - SR^*)\sqrt{T-1}}
+                 {\sqrt{1 - \widehat{SR}\,\hat\gamma_3 + \frac{\hat\gamma_4-1}{4}\widehat{SR}^2}}
+        \right)
+
+    Parameters
+    ----------
+    R : pd.Series or pd.DataFrame
+        Asset returns.
+    refSR : float, pd.Series, or pd.DataFrame
+        Reference Sharpe Ratio to test against. When ``R`` is a DataFrame and
+        ``refSR`` is a sequence, each column is tested against its own reference.
+    Rf : float or pd.Series, optional
+        Risk-free rate (periodic, non-annualized). Default 0.0.
+    ignore_skewness : bool, optional
+        If True, assumes zero skewness. Default False.
+    ignore_kurtosis : bool, optional
+        If True, assumes normal kurtosis (3). Default True.
+
+    Returns
+    -------
+    float or pd.Series
+        PSR value(s) in [0, 1].
+
+    References
+    ----------
+    Marcos Lopez de Prado. *Advances in Financial Machine Learning*, 2018.
     r"""
     from scipy.stats import norm
 
     from pyperfanalytics.utils import kurtosis, skewness
 
-    def _calc(s: pd.Series, rsr: float, rf: float) -> float:
+    def _psr_single(s: pd.Series, rsr: float, rf: float | pd.Series) -> float:
+        """Core PSR computation for a single return series."""
         s = s.dropna()
         n = len(s)
         if n <= 2:
             return np.nan
-
-        # Periodic SR (non-annualized)
-        sr = sharpe_ratio(s, Rf=rf, annualize=False, geometric=False)
-
-        # Moments
-        sk = skewness(s) if not ignore_skewness else 0.0
-        # R's PerformanceAnalytics uses kurtosis(method='moment') which is non-excess
-        kr = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
-
-        # PSR formula
-        # sr_prob = pnorm(((sr - refSR)*((n-1)^(0.5)))/(1-sr*sk+(sr^2)*(kr-1)/4)^(0.5))
+        # Align a Series Rf to the (already-clean) index of s
+        rf_aligned: float | pd.Series = rf.loc[s.index] if isinstance(rf, pd.Series) else rf
+        sr = float(sharpe_ratio(s, Rf=rf_aligned, annualize=False, geometric=False))
+        sk = float(skewness(s)) if not ignore_skewness else 0.0
+        kr = float(kurtosis(s, method="moment")) if not ignore_kurtosis else 3.0
         numerator = (sr - rsr) * np.sqrt(n - 1)
-        # Avoid division by zero or negative in square root
-        denom_sq = 1.0 - sr * sk + (sr**2) * (kr - 1.0) / 4.0
-        if denom_sq <= 0:
-            return np.nan
-
-        denominator = np.sqrt(denom_sq)
-        return float(norm.cdf(numerator / denominator))
+        # Guard against negative radicand (pathological data)
+        denom_sq = max(1e-10, 1.0 - sr * sk + (sr**2) * (kr - 1.0) / 4.0)
+        return float(norm.cdf(numerator / np.sqrt(denom_sq)))
 
     if isinstance(R, pd.DataFrame):
-        if isinstance(refSR, (pd.Series, pd.DataFrame, list, np.ndarray)):
-            # Normalize refSR to a Series matching R's columns
-            if not isinstance(refSR, (pd.Series, pd.DataFrame)):
-                ref_s = pd.Series(refSR, index=R.columns)
-            elif isinstance(refSR, pd.DataFrame):
-                ref_s = refSR.iloc[0]
-            else:
-                ref_s = refSR
-
-            results = {}
-            for col in R.columns:
-                rsr_val = ref_s[col]
-                # Pass Rf directly, handling potential series
-                rf_for_col = Rf.loc[R[col].index] if isinstance(Rf, pd.Series) else Rf
-                s = R[col].dropna()
-                n = len(s)
-                if n <= 2:
-                    results[col] = np.nan
-                    continue
-                sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
-                sk_val = skewness(s) if not ignore_skewness else 0.0
-                kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
-                num = (sr_val - rsr_val) * np.sqrt(n - 1)
-                den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
-                results[col] = float(norm.cdf(num / den))
-            return pd.Series(results)
+        # Resolve refSR to a per-column mapping
+        if isinstance(refSR, (list, np.ndarray)):
+            ref_map = pd.Series(refSR, index=R.columns)
+        elif isinstance(refSR, pd.DataFrame):
+            ref_map = refSR.iloc[0]
+        elif isinstance(refSR, pd.Series):
+            ref_map = refSR
         else:
-            results = {}
-            for col in R.columns:
-                rf_for_col = Rf.loc[R[col].index] if isinstance(Rf, pd.Series) else Rf
-                s = R[col].dropna()
-                n = len(s)
-                if n <= 2:
-                    results[col] = np.nan
-                    continue
-                sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
-                sk_val = skewness(s) if not ignore_skewness else 0.0
-                kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
-                num = (sr_val - float(refSR)) * np.sqrt(n - 1)
-                den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
-                results[col] = float(norm.cdf(num / den))
-            return pd.Series(results)
+            # Scalar: broadcast to all columns
+            ref_map = pd.Series(float(refSR), index=R.columns)
+        return pd.Series(
+            {col: _psr_single(R[col], float(ref_map[col]), Rf) for col in R.columns}
+        )
     else:
-        rf_for_col = Rf.loc[R.index] if isinstance(Rf, pd.Series) else Rf
-        s = R.dropna()
-        n = len(s)
-        if n <= 2:
-            return np.nan
-        sr_val = float(sharpe_ratio(s, Rf=rf_for_col, annualize=False, geometric=False)) # type: ignore
-        sk_val = skewness(s) if not ignore_skewness else 0.0
-        kr_val = kurtosis(s, method="moment") if not ignore_kurtosis else 3.0
-        num = (sr_val - float(refSR)) * np.sqrt(n - 1) # type: ignore
-        den = np.sqrt(max(1e-10, 1.0 - sr_val * sk_val + (sr_val**2) * (kr_val - 1.0) / 4.0))
-        return float(norm.cdf(num / den))
+        rsr_scalar = float(refSR.iloc[0]) if isinstance(refSR, (pd.Series, pd.DataFrame)) else float(refSR)
+        return _psr_single(R, rsr_scalar, Rf)
 
 def sterling_ratio(R: pd.Series | pd.DataFrame, scale: int | None = None, excess: float = 0.1) -> float | pd.Series:
     r"""

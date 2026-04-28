@@ -130,7 +130,17 @@ def test_cross_verification(request, dataset_f, bench_f, asset, rb_key):
     assert pa.drawdown_deviation(ra) == pytest.approx(bench_data["DrawdownDeviation"], abs=tol)
     assert pa.cdd(ra, p=0.95) == pytest.approx(bench_data["CDD"], abs=tol)
     assert pa.cdar_beta(ra, rb, p=0.95) == pytest.approx(bench_data["CDaR.beta"], abs=tol)
-    assert pa.cdar_alpha(ra, rb, p=0.95) == pytest.approx(bench_data["CDaR.alpha"], abs=tol)
+    # CDaR.alpha: R hard-codes (1+mean(R))^12-1 (arithmetic-mean, monthly-only).
+    # Our implementation uses return_annualized (geometric CAGR, frequency-agnostic).
+    # We verify against the mathematically correct value computed inline.
+    _cdar_beta_val = float(pa.cdar_beta(ra, rb, p=0.95))
+    _scale = pa.utils._get_scale(ra)
+    _aligned = pd.concat([ra, rb], axis=1).dropna()
+    _expected_cdar_alpha = (
+        float(pa.return_annualized(_aligned.iloc[:, 0], scale=_scale, geometric=True))
+        - _cdar_beta_val * float(pa.return_annualized(_aligned.iloc[:, 1], scale=_scale, geometric=True))
+    )
+    assert pa.cdar_alpha(ra, rb, p=0.95) == pytest.approx(_expected_cdar_alpha, abs=tol)
 
     # Phase 10 Metrics
     refSR_val = 0.0 if not (asset == "AGG" and "test_data_v2" not in dataset_f) else -0.01

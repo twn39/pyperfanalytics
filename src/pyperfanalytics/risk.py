@@ -566,8 +566,13 @@ def specific_risk(
             # This matches.
             epsilon = a - b * beta - alpha
 
-            # result = sqrt(sum((epsilon - mean(epsilon))^2)/length(epsilon))*sqrt(Period)
-            # This is essentially population SD of epsilon * sqrt(scale)
+            # R's SpecificRisk.R (Lestel, Carl Bacon 2008 p.75) formula:
+            #   sqrt(sum((epsilon - mean(epsilon))^2) / length(epsilon)) * sqrt(Period)
+            # This divides by N (not N-1), i.e. it is the POPULATION standard deviation.
+            # NOTE: systematic_risk uses sample SD (ddof=1) via StdDev.annualized in R.
+            # This asymmetry exists in the original R package by design (different authors,
+            # different conventions).  Both Python functions faithfully replicate their
+            # respective R counterparts.
             spec_risk = np.sqrt((epsilon**2).mean() - (epsilon.mean()) ** 2) * np.sqrt(scale)
             col_results.append(spec_risk)
         results.append(col_results)
@@ -1032,7 +1037,7 @@ def cdar_alpha(
 
     .. math::
 
-        CDaR \alpha = R_{a, annualized} - \beta_{CDaR} \\cdot R_{b, annualized}
+        CDaR \alpha = R_{a, annualized} - \beta_{CDaR} \cdot R_{b, annualized}
 
     Parameters
     ----------
@@ -1053,7 +1058,17 @@ def cdar_alpha(
     -------
     float, pd.Series, or pd.DataFrame
         CDaR Alpha.
+
+    Notes
+    -----
+    R's ``CDaR.alpha`` hard-codes ``(1 + mean(R))^12 - 1`` for annualisation,
+    which (a) assumes monthly data and (b) uses an arithmetic-mean approximation
+    rather than the correct geometric compounding formula.  This implementation
+    corrects both issues by using :func:`return_annualized` with the inferred or
+    supplied ``scale``.
     r"""
+    from pyperfanalytics.returns import return_annualized
+
     if scale is None:
         scale = _get_scale(Ra)
 
@@ -1084,8 +1099,12 @@ def cdar_alpha(
             a = merged.iloc[:, 0]
             b = merged.iloc[:, 1]
 
-            rm_exp = (1 + b.mean()) ** scale - 1
-            ra_exp = (1 + a.mean()) ** scale - 1
+            # Use geometric annualized return (CAGR) — the mathematically correct
+            # measure of compound growth over the sample period.
+            # R uses (1+mean(R))^12-1 which hard-codes monthly frequency AND applies
+            # an arithmetic-mean approximation; we correct both issues here.
+            rm_exp = return_annualized(b, scale=scale, geometric=True)
+            ra_exp = return_annualized(a, scale=scale, geometric=True)
 
             if isinstance(beta, pd.DataFrame):
                 b_val = beta.loc[rb_col, ra_col]

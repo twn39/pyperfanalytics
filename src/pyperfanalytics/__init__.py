@@ -146,7 +146,11 @@ from pyperfanalytics.utils import (
     skewness,
 )
 
-__version__ = "1.1.0"
+try:
+    from importlib.metadata import version as _pkg_version, PackageNotFoundError as _PNF
+    __version__ = _pkg_version("pyperfanalytics")
+except _PNF:
+    __version__ = "unknown"
 
 __all__ = [
     "average_drawdown",
