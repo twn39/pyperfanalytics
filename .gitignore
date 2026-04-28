@@ -15,3 +15,5 @@ wheels/
 /images/*.png
 /images/*.jpg
 docs/sphinx/source/_build
+.coverage
+GEMINI.md

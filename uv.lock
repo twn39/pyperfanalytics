@@ -1001,7 +1001,7 @@ wheels = [
 
 [[package]]
 name = "pyperfanalytics"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
