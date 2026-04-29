@@ -1,3 +1,0 @@
-[submodule "third_party/PerformanceAnalytics"]
-	path = third_party/PerformanceAnalytics
-	url = https://github.com/braverock/PerformanceAnalytics
