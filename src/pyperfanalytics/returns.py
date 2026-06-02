@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 # ---------------------------------------------------------------------------
 # Backward-compatibility re-exports from pyperfanalytics.core
@@ -2213,3 +2214,282 @@ def return_relative(
         out_s.name = f"{Ra.name}/{Rb.name}" if has_names else None
         return out_s
     return res_df
+
+
+# ---------------------------------------------------------------------------
+# Dynamic CAPM and State Space Kalman Filter Models
+# ---------------------------------------------------------------------------
+
+
+class TVPCAPM(sm.tsa.statespace.MLEModel):
+    r"""
+    Time-Varying Parameter CAPM State-Space Model.
+
+    Observation Equation:
+        y_t = alpha_t + beta_t * x_t + e_t,  e_t ~ N(0, sigma_obs^2)
+
+    State Equations:
+        alpha_t = alpha_{t-1} + n_{alpha, t},  n_t ~ N(0, sigma_alpha^2)
+        beta_t = beta_{t-1} + n_{beta, t},      n_t ~ N(0, sigma_beta^2)
+    """
+    def __init__(self, endog, exog):
+        # exog column 0 is constant 1.0 (for alpha), column 1 is market excess return (for beta)
+        super().__init__(endog, k_states=2, initialization='diffuse')
+        self.exog = exog
+        self.ssm['design'] = exog.values.T[np.newaxis, :, :]
+        self.ssm['transition'] = np.eye(2)
+        self.ssm['selection'] = np.eye(2)
+
+    @property
+    def param_names(self):
+        return ['var.obs', 'var.alpha', 'var.beta']
+
+    @property
+    def start_params(self):
+        var_y = np.nanvar(self.endog)
+        var_y = max(var_y, 1e-6)
+        return np.array([var_y * 0.5, var_y * 0.01, var_y * 0.01])
+
+    def transform_params(self, unconstrained):
+        return np.exp(unconstrained) + 1e-10
+
+    def untransform_params(self, constrained):
+        return np.log(constrained - 1e-10)
+
+    def update(self, params, transformed=True, includes_fixed=False, complex_step=False):
+        params = super().update(
+            params, transformed=transformed, includes_fixed=includes_fixed, complex_step=complex_step
+        )
+        self.ssm['obs_cov', 0, 0] = params[0]
+        self.ssm['state_cov', 0, 0] = params[1]
+        self.ssm['state_cov', 1, 1] = params[2]
+
+
+def _fit_single_asset_kalman(col_a, col_b, y, x, kalman_method, **kwargs):
+    """Worker function to fit a single asset-benchmark pair via Kalman Filter."""
+    import statsmodels.api as sm
+    aligned = pd.concat([y, x], axis=1).dropna()
+    if len(aligned) < 3:
+        idx = aligned.index
+        return col_a, col_b, pd.DataFrame(
+            {"alpha": np.nan, "beta": np.nan, "alpha_se": np.nan, "beta_se": np.nan},
+            index=idx
+        )
+
+    exog = pd.DataFrame({"const": 1.0, "market": aligned.iloc[:, 1]})
+    model = TVPCAPM(aligned.iloc[:, 0].values, exog)
+    try:
+        results = model.fit(disp=False, method='lbfgs', maxiter=200)
+        if kalman_method == "smooth":
+            states = results.smoothed_state
+            states_cov = results.smoothed_state_cov
+        else:
+            states = results.filtered_state
+            states_cov = results.filtered_state_cov
+
+        alpha = states[0, :]
+        beta = states[1, :]
+        alpha_se = np.sqrt(states_cov[0, 0, :])
+        beta_se = np.sqrt(states_cov[1, 1, :])
+    except Exception:
+        x_ols = sm.add_constant(aligned.iloc[:, 1])
+        ols_res = sm.OLS(aligned.iloc[:, 0], x_ols).fit()
+        alpha = np.full(len(aligned), ols_res.params.iloc[0])
+        beta = np.full(len(aligned), ols_res.params.iloc[1])
+        alpha_se = np.full(len(aligned), ols_res.bse.iloc[0])
+        beta_se = np.full(len(aligned), ols_res.bse.iloc[1])
+
+    df_res = pd.DataFrame(
+        {"alpha": alpha, "beta": beta, "alpha_se": alpha_se, "beta_se": beta_se},
+        index=aligned.index
+    )
+    return col_a, col_b, df_res
+
+
+def capm_dynamic(
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
+    Z: pd.Series | pd.DataFrame | None = None,
+    lags: int = 1,
+    method: str = "kalman",
+    kalman_method: str = "smooth",
+    demean: str = "column",
+    align: str = "strict",
+    n_jobs: int = -1,
+    **kwargs
+) -> pd.DataFrame | dict:
+    r"""
+    Calculate time-varying dynamic CAPM alpha and beta coefficients.
+
+    Supports state-space Kalman Filter model (TVP-CAPM) and OLS conditional Ferson-Schadt CAPM.
+
+    Parameters
+    ----------
+    Ra : pd.Series or pd.DataFrame
+        Asset returns.
+    Rb : pd.Series or pd.DataFrame
+        Benchmark returns.
+    Rf : float, pd.Series or pd.DataFrame, optional
+        Risk-free rate. Default is 0.0.
+    Z : pd.Series or pd.DataFrame, optional
+        Macro/information variables for OLS conditioning. Required when method="ols".
+    lags : int, optional
+        Number of lags for Z. Default is 1.
+    method : str, optional
+        Estimation method: 'kalman' (State space TVP model) or 'ols' (Ferson-Schadt conditional CAPM).
+    kalman_method : str, optional
+        Kalman extraction method: 'smooth' (Smoothed states) or 'filter' (Filtered states).
+    demean : str, optional
+        De-meaning method for Z: 'column' (correct column-wise) or 'global' (R-aligned).
+    align : str, optional
+        Alignment method for OLS: 'strict' (correct lag timestamps) or 'position' (R-aligned).
+    n_jobs : int, optional
+        Number of parallel CPU processes for multi-asset Kalman fitting. Default is -1.
+    """
+    import statsmodels.api as sm
+
+    if method not in ["kalman", "ols"]:
+        raise ValueError("method must be 'kalman' or 'ols'")
+
+    is_ra_series = isinstance(Ra, pd.Series)
+    is_rb_series = isinstance(Rb, pd.Series)
+
+    Ra_df = Ra.to_frame() if is_ra_series else Ra
+    Rb_df = Rb.to_frame() if is_rb_series else Rb
+
+    # Calculate excess returns
+    if isinstance(Rf, (pd.Series, pd.DataFrame)):
+        xRa_raw = Ra_df.sub(Rf, axis=0)
+        xRb_raw = Rb_df.sub(Rf, axis=0)
+    else:
+        xRa_raw = Ra_df - Rf
+        xRb_raw = Rb_df - Rf
+
+    if method == "ols":
+        if Z is None:
+            raise ValueError("Z must be provided when method='ols'")
+
+        Z_df = Z.to_frame() if isinstance(Z, pd.Series) else Z
+        Z_clean = Z_df.dropna()
+
+        if demean == "global":
+            global_mean = Z_clean.values.mean()
+            z_demean = Z_clean - global_mean
+        else:
+            z_demean = Z_clean - Z_clean.mean(axis=0)
+
+        # Create shifted (lagged) inform matrix
+        lagged_cols = []
+        col_names = []
+        for lag in range(1, lags + 1):
+            for col in z_demean.columns:
+                lagged_cols.append(z_demean[col].shift(lag))
+                col_names.append(f"{col} alpha at t - {lag}")
+
+        inform = pd.concat(lagged_cols, axis=1)
+        inform.columns = col_names
+
+        results = []
+        row_names = []
+
+        alpha_names = col_names
+        beta_names = [name.replace("alpha", "beta") for name in alpha_names]
+        header = ["Average alpha"] + alpha_names + ["Average beta"] + beta_names
+
+        for col_b in Rb_df.columns:
+            for col_a in Ra_df.columns:
+                row_names.append(f"{col_a} to {col_b}")
+
+                # Slicing & Aligning
+                if align == "position":
+                    z_matrix = inform.iloc[lags:]
+                    n_rows = len(z_matrix)
+
+                    xRa_cut = xRa_raw[col_a].iloc[:-1]
+                    xRb_cut = xRb_raw[col_b].iloc[:-1]
+
+                    y_vec = xRa_cut.iloc[:n_rows].values.ravel()
+                    xRb_vec = xRb_cut.iloc[:n_rows].values
+
+                    part1 = z_matrix.values
+                    part2 = xRb_vec.reshape(-1, 1)
+                    part3 = part1 * part2
+
+                    X = np.hstack([part1, part2, part3])
+                    X_reg = sm.add_constant(X)
+                else:
+                    aligned_data = pd.concat([xRa_raw[col_a], xRb_raw[col_b], inform], axis=1).dropna()
+                    if aligned_data.empty:
+                        results.append(np.full(len(header), np.nan))
+                        continue
+
+                    y_vec = aligned_data.iloc[:, 0].values
+                    xRb_vec = aligned_data.iloc[:, 1].values.reshape(-1, 1)
+                    part1 = aligned_data.iloc[:, 2:].values
+                    part3 = part1 * xRb_vec
+
+                    X = np.hstack([part1, xRb_vec, part3])
+                    X_reg = sm.add_constant(X)
+
+                model = sm.OLS(y_vec, X_reg, missing='drop')
+                res = model.fit()
+                results.append(res.params)
+
+        res_df = pd.DataFrame(results, index=row_names, columns=header)
+        return res_df
+
+    else:  # method == "kalman"
+        import concurrent.futures
+
+        tasks = []
+        for col_b in Rb_df.columns:
+            for col_a in Ra_df.columns:
+                tasks.append((col_a, col_b, xRa_raw[col_a], xRb_raw[col_b]))
+
+        results_map = {}
+
+        if len(tasks) > 1 and n_jobs != 1:
+            workers = None if n_jobs == -1 else n_jobs
+            import os
+            orig_omp = os.environ.get("OMP_NUM_THREADS")
+            orig_mkl = os.environ.get("MKL_NUM_THREADS")
+            os.environ["OMP_NUM_THREADS"] = "1"
+            os.environ["MKL_NUM_THREADS"] = "1"
+            try:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+                    futures = [
+                        executor.submit(
+                            _fit_single_asset_kalman,
+                            col_a, col_b, y, x, kalman_method, **kwargs
+                        )
+                        for col_a, col_b, y, x in tasks
+                    ]
+                    for fut in concurrent.futures.as_completed(futures):
+                        col_a, col_b, df_res = fut.result()
+                        if col_b not in results_map:
+                            results_map[col_b] = {}
+                        results_map[col_b][col_a] = df_res
+            finally:
+                if orig_omp is not None:
+                    os.environ["OMP_NUM_THREADS"] = orig_omp
+                else:
+                    os.environ.pop("OMP_NUM_THREADS", None)
+                if orig_mkl is not None:
+                    os.environ["MKL_NUM_THREADS"] = orig_mkl
+                else:
+                    os.environ.pop("MKL_NUM_THREADS", None)
+        else:
+            for col_a, col_b, y, x in tasks:
+                _, _, df_res = _fit_single_asset_kalman(col_a, col_b, y, x, kalman_method, **kwargs)
+                if col_b not in results_map:
+                    results_map[col_b] = {}
+                results_map[col_b][col_a] = df_res
+
+        if is_ra_series and is_rb_series:
+            return results_map[Rb_df.columns[0]][Ra_df.columns[0]]
+
+        if is_rb_series:
+            return results_map[Rb_df.columns[0]]
+
+        return results_map

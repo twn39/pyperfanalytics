@@ -1,7 +1,8 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from typing import Any
 
 from pyperfanalytics.utils import (
     _get_scale,
