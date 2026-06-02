@@ -1811,9 +1811,10 @@ def prob_sharpe_ratio(
             return np.nan
         # Align a Series Rf to the (already-clean) index of s
         rf_aligned: float | pd.Series = rf.loc[s.index] if isinstance(rf, pd.Series) else rf
-        sr = float(sharpe_ratio(s, Rf=rf_aligned, annualize=False, geometric=False))
-        sk = float(skewness(s)) if not ignore_skewness else 0.0
-        kr = float(kurtosis(s, method="moment")) if not ignore_kurtosis else 3.0
+        from typing import cast
+        sr = cast(float, sharpe_ratio(s, Rf=rf_aligned, annualize=False, geometric=False))
+        sk = cast(float, skewness(s)) if not ignore_skewness else 0.0
+        kr = cast(float, kurtosis(s, method="moment")) if not ignore_kurtosis else 3.0
         numerator = (sr - rsr) * np.sqrt(n - 1)
         # Guard against negative radicand (pathological data)
         denom_sq = max(1e-10, 1.0 - sr * sk + (sr**2) * (kr - 1.0) / 4.0)

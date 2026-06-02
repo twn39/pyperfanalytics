@@ -1688,14 +1688,14 @@ def charts_rolling_regression(
     f_beta = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="Beta", colorset=colorset)
     for trace in f_beta.data:
         if hasattr(trace, "showlegend"):
-            trace.showlegend = False  # type: ignore
+            trace.showlegend = False
         fig.add_trace(trace, row=2, col=1)
 
     # 3. R-Squared
     f_r2 = chart_rolling_regression(Ra, Rb, width=width, Rf=Rf, attribute="R-Squared", colorset=colorset)
     for trace in f_r2.data:
         if hasattr(trace, "showlegend"):
-            trace.showlegend = False  # type: ignore
+            trace.showlegend = False
         fig.add_trace(trace, row=3, col=1)
 
     fig.update_layout(height=900, title_text=main, template="plotly_white", hovermode="x unified")
@@ -1824,9 +1824,9 @@ def chart_acf_plus(
 
     # Add CI lines to both
     for r in [1, 2]:
-        fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1) # type: ignore
-        fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1) # type: ignore
-        fig.add_hline(y=0, line_color="black", row=r, col=1) # type: ignore
+        fig.add_hline(y=ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
+        fig.add_hline(y=-ci, line_dash="dash", line_color="blue", opacity=0.5, row=r, col=1)
+        fig.add_hline(y=0, line_color="black", row=r, col=1)
 
     fig.update_layout(
         height=700,

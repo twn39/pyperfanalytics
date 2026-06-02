@@ -59,7 +59,7 @@ def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete")
     if method in ["discrete", "simple", "arithmetic"]:
         return prices.pct_change()
     elif method in ["log", "compound", "continuous"]:
-        return np.log(prices.astype(float)).diff()  # type: ignore[return-value]
+        return np.log(prices.astype(float)).diff()  # type: ignore
     elif method in ["diff", "difference"]:
         return prices.diff()
     else:
