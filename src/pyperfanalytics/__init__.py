@@ -74,8 +74,11 @@ from pyperfanalytics.returns import (
     rachev_ratio,
     return_annualized,
     return_calculate,
+    return_clean,
     return_cumulative,
     return_excess,
+    return_geltner,
+    return_portfolio,
     semi_deviation,
     semi_variance,
     sharpe_ratio,
@@ -147,7 +150,8 @@ from pyperfanalytics.utils import (
 )
 
 try:
-    from importlib.metadata import version as _pkg_version, PackageNotFoundError as _PNF
+    from importlib.metadata import PackageNotFoundError as _PNF
+    from importlib.metadata import version as _pkg_version
     __version__ = _pkg_version("pyperfanalytics")
 except _PNF:
     __version__ = "unknown"
@@ -224,8 +228,11 @@ __all__ = [
     "rachev_ratio",
     "return_annualized",
     "return_calculate",
+    "return_clean",
     "return_cumulative",
     "return_excess",
+    "return_geltner",
+    "return_portfolio",
     "semi_deviation",
     "semi_variance",
     "sharpe_ratio",

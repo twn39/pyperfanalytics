@@ -383,7 +383,7 @@ def drawdown_peak(R: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     This function tracks drawdown since the last peak.
     It is used by UlcerIndex and PainIndex in PerformanceAnalytics.
 
-    Implementation follows R's vectorized accumulation to ensure 
+    Implementation follows R's vectorized accumulation to ensure
     exact matching with continuous compounding drawdowns.
     r"""
 

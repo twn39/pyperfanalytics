@@ -497,7 +497,7 @@ def table_calendar_returns(
         dt_index = pd.to_datetime(df.index)
     else:
         dt_index = df.index
-        
+
     df["Year"] = dt_index.year # type: ignore
     df["Month"] = dt_index.month # type: ignore
 
@@ -929,7 +929,7 @@ def table_prob_sharpe_ratio(
         refSR_list = list(refSR)
     else:
         refSR_list = [refSR]
-        
+
     for rsr in refSR_list:
         row = prob_sharpe_ratio(ra_df, refSR=float(rsr), Rf=float(Rf))
         final_results.append(row)

@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from pyperfanalytics.utils import _get_scale
-
 # ---------------------------------------------------------------------------
 # Backward-compatibility re-exports from pyperfanalytics.core
 # ---------------------------------------------------------------------------
@@ -28,270 +26,7 @@ from pyperfanalytics.core import (  # noqa: E402 F401
     upside_risk,
     volatility_skewness,
 )
-
-
-def return_calculate(prices: pd.Series | pd.DataFrame, method: str = "discrete") -> pd.Series | pd.DataFrame:
-    r"""
-    Calculate returns from a price stream.
-
-    Determines the period-over-period returns based on a pricing series, supporting
-    both discrete (simple) and continuous (log) methods.
-
-    Formula:
-
-    - discrete: :math:`R_t = \frac{P_t}{P_{t-1}} - 1`
-    - continuous: :math:`r_t = \\ln(P_t) - \\ln(P_{t-1})`
-    - difference: :math:`D_t = P_t - P_{t-1}`
-
-    Parameters
-    ----------
-    prices : pd.Series or pd.DataFrame
-        Price levels of assets.
-    method : str, optional
-        Type of return calculation: "discrete" (default), "log", or "diff".
-
-    Returns
-    -------
-    pd.Series or pd.DataFrame
-        Returns series.
-    r"""
-    if method in ["discrete", "simple", "arithmetic"]:
-        return prices.pct_change()
-    elif method in ["log", "compound", "continuous"]:
-        return np.log(prices.astype(float)).diff() # type: ignore
-    elif method in ["diff", "difference"]:
-        return prices.diff()
-    else:
-        raise ValueError(f"Unknown method: {method}")
-
-
-def return_excess(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0) -> pd.Series | pd.DataFrame:
-    r"""
-    Calculate excess returns by subtracting the risk-free rate.
-
-    When ``Rf`` is a ``pd.Series`` or ``pd.DataFrame``, it is forward-filled and
-    aligned to ``R``'s index before subtraction. Both single- and multi-column
-    ``Rf`` inputs are handled safely even when ``Rf`` spans a wider date range than
-    ``R``.
-    r"""
-    if isinstance(Rf, (pd.Series, pd.DataFrame)):
-        # Merge to get a common index; Rf dates outside R are ignored after alignment.
-        combined = pd.concat([R, Rf], axis=1, sort=False)
-        rf_cols = Rf.columns if isinstance(Rf, pd.DataFrame) else [Rf.name]
-        # Forward-fill Rf gaps (matches R's na.locf behaviour)
-        combined[rf_cols] = combined[rf_cols].ffill()
-
-        if len(rf_cols) == 1:
-            # Single Rf column: pandas aligns by index automatically
-            res = R.sub(combined[rf_cols[0]], axis=0)
-        else:
-            # Multiple Rf columns: align to R's index BEFORE converting to
-            # a plain NumPy array so row counts always match, even when Rf
-            # extends beyond R's date range.
-            rf_aligned = combined.loc[R.index, rf_cols]
-            if isinstance(R, pd.DataFrame):
-                res = R.sub(rf_aligned.values, axis=0)
-            else:
-                res = R - rf_aligned.iloc[:, 0]
-
-        # Return only rows present in the original R
-        return res.loc[R.index] if isinstance(R, pd.DataFrame) else res[R.index]
-
-    return R - Rf
-
-
-def return_annualized(
-    R: pd.Series | pd.DataFrame, scale: int | None = None, geometric: bool = True
-) -> float | pd.Series:
-    r"""
-    Calculate annualized return.
-
-    Aggregates period returns into an annualized equivalent, assuming continuous
-    compounding (geometric) or simple arithmetic averaging.
-
-    Formula (Geometric):
-
-    .. math::
-
-        R_{ann} = \\left[ \\prod_{i=1}^n (1+R_i) \right]^{\frac{scale}{n}} - 1
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    scale : int, optional
-        Number of periods in a year.
-    geometric : bool, optional
-        Whether to compound returns. Default is True.
-
-    Returns
-    -------
-    float or pd.Series
-        Annualized return.
-    r"""
-    if scale is None:
-        scale = _get_scale(R)
-
-    # R code: n = length(na.omit(R))
-    # For DataFrame, we need to handle per-column
-    def _calc(s: pd.Series, sc: int, geom: bool) -> float:
-        s = s.dropna()
-        n = len(s)
-        if n == 0:
-            return np.nan
-        if geom:
-            # Result matches R: (prod(1+R)^(scale/n)) - 1
-            return (1 + s).prod() ** (float(sc) / n) - 1
-        else:
-            return s.mean() * sc
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, sc=scale, geom=geometric)
-    else:
-        return _calc(R, scale, geometric)
-
-
-def std_dev_annualized(R: pd.Series | pd.DataFrame, scale: int | None = None) -> float | pd.Series:
-    r"""
-    Calculate annualized standard deviation.
-    r"""
-    if scale is None:
-        scale = _get_scale(R)
-
-    # R uses sd(x, na.rm=TRUE) which is ddof=1
-    if isinstance(R, pd.DataFrame):
-        return R.std(ddof=1) * np.sqrt(scale)
-    else:
-        return R.dropna().std(ddof=1) * np.sqrt(scale)
-
-
-def downside_deviation(
-    R: pd.Series | pd.DataFrame, MAR: float = 0.0, method: str = "full", potential: bool = False
-) -> float | pd.Series:
-    r"""
-    Calculate downside deviation or potential.
-
-    Downside deviation measures the volatility of returns below a minimum acceptable
-    return (MAR). Different from standard deviation, it only penalizes losses.
-
-    Formula:
-
-    .. math::
-
-        \\delta_{MAR} = \\sqrt{\frac{1}{n} \\sum_{t=1}^n \\min(R_t - MAR, 0)^2}
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    MAR : float, optional
-        Minimum acceptable return. Default is 0.0.
-    method : str, optional
-        "full" (divide by total :math:`n`) or "subset" (divide by number of downside periods).
-    potential : bool, optional
-        If True, calculates Downside Potential (first lower partial moment).
-
-    Returns
-    -------
-    float or pd.Series
-        Downside deviation.
-    r"""
-
-    def _calc(s: pd.Series, mar: float, meth: str, pot: bool) -> float:
-        s = s.dropna()
-        # R code: r = subset(R, R < MAR)
-        under = s[s < mar]
-
-        if meth == "full":
-            n = len(s)
-        else:
-            n = len(under)
-
-        if n == 0:
-            return 0.0
-
-        # R code: (MAR - r)
-        diff = mar - under
-
-        if pot:
-            return diff.sum() / n
-        else:
-            return np.sqrt((diff**2).sum() / n)
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, mar=MAR, meth=method, pot=potential)
-    else:
-        return _calc(R, MAR, method, potential)
-
-
-def downside_potential(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    r"""
-    Calculate downside potential.
-    r"""
-    return downside_deviation(R, MAR=MAR, method="full", potential=True)
-
-
-def semi_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    r"""
-    Calculate semi-deviation.
-
-    Semi-deviation is the downside deviation where MAR is the mean return.
-    Formula corresponds to the square root of the second lower partial moment.
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-
-    Returns
-    -------
-    float or pd.Series
-        Semi-deviation.
-    r"""
-    if isinstance(R, pd.DataFrame):
-        return R.apply(lambda x: downside_deviation(x, MAR=x.mean(), method="full"))
-    else:
-        return downside_deviation(R, MAR=R.mean(), method="full")
-
-
-def semi_variance(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    r"""
-    Calculate semi-variance (MAR = mean, method = subset).
-    r"""
-    if isinstance(R, pd.DataFrame):
-        return R.apply(lambda x: downside_deviation(x, MAR=x.mean(), method="subset") ** 2)
-    else:
-        return downside_deviation(R, MAR=R.mean(), method="subset") ** 2
-
-
-def gain_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    r"""
-    Standard deviation of the positive returns.
-    r"""
-
-    def _calc(s: pd.Series) -> float:
-        subset = s[s > 0]
-        if len(subset) < 2:
-            return np.nan
-        return subset.std(ddof=1)
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc)
-    else:
-        return _calc(R)
-
-
-def loss_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    def _calc(s: pd.Series) -> float:
-        subset = s[s < 0]
-        if len(subset) < 2:
-            return np.nan
-        return subset.std(ddof=1)
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc)
-    else:
-        return _calc(R)
+from pyperfanalytics.utils import _get_scale
 
 
 def sortino_ratio(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
@@ -1000,111 +735,7 @@ def pain_ratio(
     return (ann_ret - rf_ann) / pi
 
 
-def upside_risk(
-    R: pd.Series | pd.DataFrame, MAR: float = 0.0, method: str = "full", stat: str = "risk"
-) -> float | pd.Series:
-    r"""
-    Calculate upside risk, variance, or potential.
 
-    Depending on the selected stat, measures the variability or sum of returns
-    above a specified Minimum Acceptable Return (MAR).
-
-    Formula (Variance):
-
-    .. math::
-
-        UV = \frac{1}{n} \\sum_{R>MAR} (R - MAR)^2
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    MAR : float, optional
-        Minimum Acceptable Return. Default is 0.0.
-    method : str, optional
-        "full" or "subset". Default is "full".
-    stat : str, optional
-        Type of return metric: "risk", "variance", or "potential". Default is "risk".
-
-    Returns
-    -------
-    float or pd.Series
-        Upside risk, variance, or potential.
-    r"""
-
-    def _calc(s: pd.Series, mar: float, meth: str, st: str) -> float:
-        s = s.dropna()
-        # R code: r = subset(R, R > MAR)
-        above = s[s > mar]
-
-        if meth == "full":
-            n = len(s)
-        else:
-            n = len(above)
-
-        if n == 0:
-            return 0.0
-
-        diff = above - mar
-
-        if st == "risk":
-            return np.sqrt((diff**2).sum() / n)
-        elif st == "variance":
-            return (diff**2).sum() / n
-        elif st == "potential":
-            return diff.sum() / n
-        else:
-            raise ValueError(f"Unknown stat: {st}")
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, mar=MAR, meth=method, st=stat)
-    else:
-        return _calc(R, MAR, method, stat)
-
-
-def upside_potential(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    r"""
-    Calculate upside potential.
-    r"""
-    return upside_risk(R, MAR=MAR, method="full", stat="potential")
-
-
-def volatility_skewness(R: pd.Series | pd.DataFrame, MAR: float = 0.0, stat: str = "volatility") -> float | pd.Series:
-    r"""
-    Calculate Volatility or Variability Skewness.
-
-    A ratio comparing upside variability to downside variability.
-
-    Formula (Volatility Skewness):
-
-    .. math::
-
-        VS = \frac{UpsideVariance}{DownsideVariance}
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    MAR : float, optional
-        Minimum Acceptable Return. Default is 0.0.
-    stat : str, optional
-        "volatility" (variance based) or "variability" (risk based). Default is "volatility".
-
-    Returns
-    -------
-    float or pd.Series
-        Skewness metric.
-    r"""
-    if stat == "volatility":
-        uv = upside_risk(R, MAR=MAR, method="full", stat="variance")
-        dv = downside_deviation(R, MAR=MAR, method="full") ** 2
-        return uv / dv
-    elif stat == "variability":
-        ur = upside_risk(R, MAR=MAR, method="full", stat="risk")
-        dr = downside_deviation(R, MAR=MAR, method="full")
-        return ur / dr
-    else:
-        raise ValueError(f"Unknown stat: {stat}")
 
 
 def omega_ratio(
@@ -1360,58 +991,7 @@ def modigliani(
         return res_df
 
 
-def mean_absolute_deviation(R: pd.Series | pd.DataFrame) -> float | pd.Series:
-    r"""
-    Calculate Mean Absolute Deviation (MAD).
 
-    An alternative measure of dispersion around the mean, often more robust to
-    outliers than standard deviation.
-
-    Formula:
-
-    .. math::
-
-        MAD = \frac{1}{n} \\sum_{i=1}^n |R_i - \bar{R}|
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-
-    Returns
-    -------
-    float or pd.Series
-        Mean absolute deviation.
-    r"""
-
-    def _calc(s: pd.Series) -> float:
-        s = s.dropna()
-        if len(s) == 0:
-            return np.nan
-        return float((s - s.mean()).abs().mean())
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc)
-    else:
-        return _calc(R)
-
-
-def downside_frequency(R: pd.Series | pd.DataFrame, MAR: float = 0.0) -> float | pd.Series:
-    r"""
-    Calculate Downside Frequency.
-    Number of returns below MAR divided by total number of returns.
-    r"""
-
-    def _calc(s: pd.Series, mar: float) -> float:
-        s = s.dropna()
-        if len(s) == 0:
-            return np.nan
-        return float(len(s[s < mar]) / len(s))
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, mar=MAR)
-    else:
-        return _calc(R, MAR)
 
 
 def m2_sortino(
@@ -1610,7 +1190,7 @@ def m_squared_excess(
             else:
                 res.loc[rb_col] = res.loc[rb_col] - rbp_val
         return res
-    
+
     return float(np.nan)
 
 
@@ -1798,24 +1378,7 @@ def downside_sharpe_ratio(R: pd.Series | pd.DataFrame, Rf: float | pd.Series | p
         return _calc(R, rf_val)
 
 
-def return_cumulative(R: pd.Series | pd.DataFrame, geometric: bool = True) -> float | pd.Series:
-    r"""
-    Calculate a compounded (geometric) or simple cumulative return.
-    r"""
 
-    def _calc(s: pd.Series, geom: bool) -> float:
-        s = s.dropna()
-        if len(s) == 0:
-            return np.nan
-        if geom:
-            return float((1 + s).prod() - 1)
-        else:
-            return float(s.sum())
-
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, geom=geometric)
-    else:
-        return _calc(R, geometric)
 
 
 def kappa(R: pd.Series | pd.DataFrame, MAR: float = 0.0, l: int = 2) -> float | pd.Series:
@@ -2313,12 +1876,12 @@ def hurst_index(R: pd.Series | pd.DataFrame) -> float | pd.Series:
         n = len(s)
         if n < 2:
             return np.nan
-        
+
         # Demean the returns
         s_demean = s - s.mean()
         # Compute cumulative sum of demeaned returns
         z = s_demean.cumsum()
-        
+
         # Rescaled Range
         m = (z.max() - z.min()) / s.std(ddof=1)
         if m <= 0:
