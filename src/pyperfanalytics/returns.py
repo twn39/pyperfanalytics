@@ -13,6 +13,7 @@ from pyperfanalytics.core import (  # noqa: E402 F401
     downside_frequency,
     downside_potential,
     gain_deviation,
+    level_calculate,
     loss_deviation,
     mean_absolute_deviation,
     return_annualized,
@@ -22,6 +23,7 @@ from pyperfanalytics.core import (  # noqa: E402 F401
     semi_deviation,
     semi_variance,
     std_dev_annualized,
+    upside_frequency,
     upside_potential,
     upside_risk,
     volatility_skewness,
@@ -2160,3 +2162,54 @@ def return_portfolio(
 
     res = pd.Series(out_ret, index=r_idx, name="portfolio.returns")
     return res
+
+
+def return_relative(
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+) -> pd.Series | pd.DataFrame:
+    r"""
+    Calculate the relative return ratio of one asset to another over time.
+    """
+    is_both_series = isinstance(Ra, pd.Series) and isinstance(Rb, pd.Series)
+    has_names = False
+    if is_both_series:
+        has_names = (Ra.name is not None) and (Rb.name is not None)
+
+    Ra_df = Ra.to_frame(name=Ra.name if Ra.name is not None else "Ra") if isinstance(Ra, pd.Series) else Ra
+    Rb_df = Rb.to_frame(name=Rb.name if Rb.name is not None else "Rb") if isinstance(Rb, pd.Series) else Rb
+
+    # Fast Path: 无缺失值时采用矩阵乘法广播 (速度提升数十倍)
+    if not Ra_df.isna().any().any() and not Rb_df.isna().any().any():
+        cum_a = (1.0 + Ra_df).cumprod()
+        cum_b = (1.0 + Rb_df).cumprod()
+        results = {}
+        for col_b in cum_b.columns:
+            temp = cum_a.div(cum_b[col_b], axis=0)
+            for col_a in cum_a.columns:
+                results[f"{col_a}/{col_b}"] = temp[col_a]
+        res_df = pd.DataFrame(results)
+        if is_both_series:
+            out_s = res_df.iloc[:, 0]
+            out_s.name = f"{Ra.name}/{Rb.name}" if has_names else None
+            return out_s
+        return res_df
+
+    # Slow Path: 存在 NaN 时，严格按每对列局部对齐 dropna
+    results = {}
+    for col_a in Ra_df.columns:
+        for col_b in Rb_df.columns:
+            merged = pd.concat([Ra_df[col_a], Rb_df[col_b]], axis=1).dropna()
+            if merged.empty:
+                results[f"{col_a}/{col_b}"] = pd.Series(dtype=float)
+                continue
+            cum_a = (1.0 + merged.iloc[:, 0]).cumprod()
+            cum_b = (1.0 + merged.iloc[:, 1]).cumprod()
+            results[f"{col_a}/{col_b}"] = cum_a / cum_b
+
+    res_df = pd.DataFrame(results)
+    if is_both_series:
+        out_s = res_df.iloc[:, 0]
+        out_s.name = f"{Ra.name}/{Rb.name}" if has_names else None
+        return out_s
+    return res_df

@@ -165,36 +165,116 @@ def kurtosis(R: pd.Series | pd.DataFrame, method: str = "excess") -> float | pd.
         return _calc(R, method)
 
 
-def _get_scale(data: pd.Series | pd.DataFrame) -> int:
+def frequency(R: pd.Series | pd.DataFrame) -> int | pd.Series:
     r"""
-    Determine the scale (periods per year) based on index frequency.
-    r"""
-    if not isinstance(data.index, pd.DatetimeIndex):
-        raise ValueError("Data index must be a DatetimeIndex to determine scale.")
+    Identify the frequency label (scale) of the return series.
+    Returns 252 for Daily, 52 for Weekly, 12 for Monthly, 4 for Quarterly, 1 for Yearly.
+    """
+    if not isinstance(R.index, pd.DatetimeIndex):
+        raise ValueError("Data index must be a DatetimeIndex to determine frequency.")
 
-    # Simple heuristic based on pandas frequency or average spacing
-    freq = data.index.inferred_freq
+    freq = R.index.inferred_freq
+    scale = 1
     if freq:
         freq_base = freq.split("-")[0]
         if freq_base in ["B", "D"]:
-            return 252
-        if freq_base in ["W"]:
-            return 52
-        if freq_base in ["M", "ME", "MS", "BME", "BMS"]:
-            return 12
-        if freq_base in ["Q", "QE", "QS", "BQE", "BQS"]:
-            return 4
-        if freq_base in ["Y", "YE", "YS", "BYE", "BYS", "A"]:
-            return 1
+            scale = 252
+        elif freq_base in ["W"]:
+            scale = 52
+        elif freq_base in ["M", "ME", "MS", "BME", "BMS"]:
+            scale = 12
+        elif freq_base in ["Q", "QE", "QS", "BQE", "BQS"]:
+            scale = 4
+        elif freq_base in ["Y", "YE", "YS", "BYE", "BYS", "A"]:
+            scale = 1
+        else:
+            scale = _empirical_scale(R.index)
+    else:
+        scale = _empirical_scale(R.index)
 
-    # Fallback to empirical spacing if freq is not set
-    days_diff = pd.Series(data.index).diff().dt.days.median()
+    if isinstance(R, pd.DataFrame):
+        return pd.Series([scale] * len(R.columns), index=R.columns, name="Frequency")
+    return scale
+
+
+def _empirical_scale(index: pd.DatetimeIndex) -> int:
+    if len(index) < 2:
+        return 1
+    days_diff = pd.Series(index).diff().dt.days.median()
     if days_diff <= 1.5:
         return 252
-    if days_diff <= 7.5:
+    elif days_diff <= 7.5:
         return 52
-    if days_diff <= 31.5:
+    elif days_diff <= 31.5:
         return 12
-    if days_diff <= 92.5:
+    elif days_diff <= 92.5:
         return 4
     return 1
+
+
+def _get_scale(data: pd.Series | pd.DataFrame) -> int:
+    res = frequency(data)
+    if isinstance(res, pd.Series):
+        return int(res.iloc[0])
+    return int(res)
+
+
+def co_skewness_matrix(R: pd.DataFrame, unbiased: bool = False) -> np.ndarray:
+    r"""
+    Calculate the N x N^2 multivariate sample coskewness matrix.
+    """
+    Xc = (R - R.mean()).values
+    T, N = Xc.shape
+    if unbiased:
+        if T < 3:
+            raise ValueError("R must have at least 3 rows for unbiased coskewness.")
+        CC = T / ((T - 1) * (T - 2))
+    else:
+        CC = 1.0 / T
+
+    R_kron = np.einsum('ti,tj->tij', Xc, Xc).reshape(T, N * N)
+    M3 = CC * (Xc.T @ R_kron)
+    return M3
+
+
+def co_kurtosis_matrix(R: pd.DataFrame) -> np.ndarray:
+    r"""
+    Calculate the N x N^3 multivariate sample cokurtosis matrix.
+    """
+    Xc = (R - R.mean()).values
+    T, N = Xc.shape
+    R_kron3 = np.einsum('ti,tj,tk->tijk', Xc, Xc, Xc).reshape(T, N * N * N)
+    M4 = (Xc.T @ R_kron3) / T
+    return M4
+
+
+def portm3(w: np.ndarray, M3: np.ndarray) -> float:
+    r"""
+    Calculate the portfolio third central moment w^T * M3 * (w x w).
+    """
+    w_flat = w.ravel()
+    return float(w_flat.T @ M3 @ np.kron(w_flat, w_flat))
+
+
+def derportm3(w: np.ndarray, M3: np.ndarray) -> np.ndarray:
+    r"""
+    Calculate the gradient of the portfolio third central moment with respect to weights.
+    """
+    w_flat = w.ravel()
+    return 3.0 * M3 @ np.kron(w_flat, w_flat)
+
+
+def portm4(w: np.ndarray, M4: np.ndarray) -> float:
+    r"""
+    Calculate the portfolio fourth central moment w^T * M4 * (w x w x w).
+    """
+    w_flat = w.ravel()
+    return float(w_flat.T @ M4 @ np.kron(w_flat, np.kron(w_flat, w_flat)))
+
+
+def derportm4(w: np.ndarray, M4: np.ndarray) -> np.ndarray:
+    r"""
+    Calculate the gradient of the portfolio fourth central moment with respect to weights.
+    """
+    w_flat = w.ravel()
+    return 4.0 * M4 @ np.kron(w_flat, np.kron(w_flat, w_flat))

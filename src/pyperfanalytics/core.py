@@ -505,3 +505,113 @@ def volatility_skewness(
         return R.apply(_calc, mar=MAR, st=stat)
     else:
         return _calc(R, MAR, stat)
+
+
+def upside_frequency(
+    R: pd.Series | pd.DataFrame,
+    MAR: float | pd.Series | np.ndarray = 0.0,
+) -> float | pd.Series:
+    r"""
+    Calculate the frequency of returns falling above *MAR*.
+
+    .. math::
+
+        f_{up} = \frac{\#\{R_t > MAR\}}{n}
+    """
+    def _calc(s: pd.Series, mar: float | pd.Series | np.ndarray) -> float:
+        if isinstance(mar, pd.Series):
+            aligned = pd.concat([s, mar], axis=1).dropna()
+            if len(aligned) == 0:
+                return np.nan
+            return (aligned.iloc[:, 0] > aligned.iloc[:, 1]).sum() / len(aligned)
+        elif isinstance(mar, (np.ndarray, list)):
+            s_clean = s.dropna()
+            if len(s_clean) == 0:
+                return np.nan
+            if len(mar) == len(s):
+                mar_s = pd.Series(mar, index=s.index)
+                return _calc(s_clean, mar_s)
+            else:
+                mar_mean = float(np.mean(mar))
+                return (s_clean > mar_mean).sum() / len(s_clean)
+        else:
+            s_clean = s.dropna()
+            if len(s_clean) == 0:
+                return np.nan
+            return (s_clean > mar).sum() / len(s_clean)
+
+    if isinstance(R, pd.DataFrame):
+        return R.apply(_calc, mar=MAR)
+    else:
+        return _calc(R, MAR)
+
+
+def level_calculate(
+    R: pd.Series | pd.DataFrame,
+    seed_value: float | None = None,
+    initial: bool = True,
+    method: str = "discrete",
+) -> pd.Series | pd.DataFrame:
+    r"""
+    Calculate asset level or cumulative wealth index from return series.
+    """
+    if method not in ["discrete", "log", "difference"]:
+        raise ValueError("method must be one of 'discrete', 'log', 'difference'")
+
+    if seed_value is None:
+        seed_value = 0.0 if method == "difference" else 1.0
+
+    def _preprocess(df_or_series):
+        data = df_or_series.copy()
+        has_nan_first_row = data.iloc[0].isna().any() if isinstance(data, pd.DataFrame) else pd.isna(data.iloc[0])
+
+        if not has_nan_first_row:
+            idx = data.index
+            freq = idx.freq or idx.inferred_freq
+            offset = None
+            if freq:
+                try:
+                    offset = pd.tseries.frequencies.to_offset(freq)
+                except Exception:
+                    pass
+
+            if offset is not None:
+                prev_date = idx[0] - offset
+            elif len(idx) >= 2:
+                prev_date = idx[0] - (idx[1] - idx[0])
+            else:
+                prev_date = idx[0] - pd.Timedelta(days=1)
+
+            if isinstance(data, pd.DataFrame):
+                new_row = pd.DataFrame(0.0, index=[prev_date], columns=data.columns)
+                data = pd.concat([new_row, data])
+            else:
+                new_row = pd.Series(0.0, index=[prev_date])
+                data = pd.concat([new_row, data])
+
+        return data.fillna(0.0)
+
+    clean_R = _preprocess(R)
+
+    if initial:
+        if method == "discrete":
+            accum = (1.0 + clean_R).cumprod()
+            return accum * seed_value
+        elif method == "log":
+            accum = np.exp(clean_R.cumsum())
+            return accum * seed_value
+        else:  # difference
+            accum = clean_R.cumsum()
+            return accum + seed_value
+    else:
+        if method == "discrete":
+            accum = (1.0 + clean_R).cumprod()
+            return seed_value * accum.div(accum.iloc[-1], axis=1 if isinstance(accum, pd.DataFrame) else None)
+        elif method == "log":
+            accum = clean_R.cumsum()
+            diff = accum.sub(accum.iloc[-1], axis=1 if isinstance(accum, pd.DataFrame) else None)
+            return seed_value * np.exp(diff)
+        else:  # difference
+            accum = clean_R.cumsum()
+            diff = accum.sub(accum.iloc[-1], axis=1 if isinstance(accum, pd.DataFrame) else None)
+            return seed_value + diff

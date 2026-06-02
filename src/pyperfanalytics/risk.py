@@ -1,238 +1,446 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from typing import Any
 
-from pyperfanalytics.utils import _get_scale, centered_moment, kurtosis, skewness
+from pyperfanalytics.utils import (
+    _get_scale,
+    centered_moment,
+    co_kurtosis_matrix,
+    co_skewness_matrix,
+    kurtosis,
+    skewness,
+)
 
 
-def var_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
+def _verify_portfolio_args(R, weights, portfolio_method):
+    if portfolio_method not in ["single", "component", "marginal"]:
+        raise ValueError("portfolio_method must be one of 'single', 'component', 'marginal'")
+    if weights is not None:
+        w = np.array(weights, dtype=float)
+        if isinstance(R, pd.DataFrame):
+            if len(w) != R.shape[1]:
+                raise ValueError("Length of weights must match the number of columns in R.")
+        return w
+    return None
+
+
+def var_historical(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+) -> Any:
     r"""
-    Calculate Historical Value at Risk (VaR).
-
-    Computes the historical VaR (negative of the alpha-quantile) of the returns distribution.
-    VaR is a measure of the risk of loss for investments.
-
-    Formula:
-
-    .. math::
-
-        VaR_{hist} = -Q(R, 1-p)
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level for calculation, default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Historical VaR value(s) (returned as positive values representing losses).
-    r"""
+    Calculate Historical Value at Risk (VaR), with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
     alpha = 1 - p if p >= 0.5 else p
 
-    def _calc(s: pd.Series, a: float) -> float:
-        s = s.dropna()
-        if len(s) == 0:
-            return np.nan
-        return -np.percentile(s, a * 100)
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return -np.percentile(Rp.dropna(), alpha * 100)
+        else:
+            def _calc(s: pd.Series) -> float:
+                s = s.dropna()
+                return -np.percentile(s, alpha * 100) if len(s) > 0 else np.nan
+            return R.apply(_calc) if isinstance(R, pd.DataFrame) else _calc(R)
 
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, a=alpha)
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    Rp = R @ w
+    hvar = -np.percentile(Rp.dropna(), alpha * 100)
+
+    neg_mask = Rp < 0
+    if not neg_mask.any():
+        neg_mask = pd.Series(True, index=Rp.index)
+
+    zl_contrib = (R[neg_mask] * w).mean().values
+    total_neg_mean = Rp[neg_mask].mean()
+    ratio = hvar / total_neg_mean if total_neg_mean != 0 else 0.0
+    contrib = zl_contrib * ratio
+    pct_contrib = contrib / contrib.sum() if contrib.sum() != 0 else np.zeros_like(contrib)
+
+    if portfolio_method == "marginal":
+        return pd.Series(contrib / w, index=R.columns, name="marginal_hVaR")
     else:
-        return _calc(R, alpha)
+        return {
+            "hVaR": hvar,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
 
 
-def var_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
+def var_gaussian(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+) -> Any:
     r"""
-    Calculate Gaussian (Parametric) Value at Risk (VaR).
-
-    Estimates VaR assuming a normal distribution of returns.
-
-    Formula:
-
-    .. math::
-
-        VaR_{gaus} = -(\\mu + z_\alpha \\cdot \\sigma)
-    where :math:`z_\alpha` is the :math:`\alpha`-quantile of the standard normal distribution.
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level for calculation (e.g., 0.95 for 95% confidence). Default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Gaussian VaR value(s).
-    r"""
-    alpha = 1 - p if p >= 0.5 else p
-    mu = R.mean()
-    m2 = centered_moment(R, 2)
-    z = norm.ppf(alpha)
-    return -mu - z * np.sqrt(m2)
-
-
-def var_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    r"""
-    Calculate Modified (Cornish-Fisher) Value at Risk (VaR).
-
-    Adjusts Gaussian VaR to account for skewness and kurtosis in the return
-    distribution using the Cornish-Fisher expansion.
-
-    Formula:
-
-    .. math::
-
-        VaR_{mod} = -(\\mu + \tilde{z}_\alpha \\cdot \\sigma)
-    where :math:`\tilde{z}_\alpha` is the Cornish-Fisher expansion of the quantile.
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level for calculation. Default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Modified VaR value(s).
-    r"""
+    Calculate Gaussian (Parametric) Value at Risk (VaR), with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
 
-    mu = R.mean()
-    m2 = centered_moment(R, 2)
-    skew = skewness(R, method="moment")
-    exkurt = kurtosis(R, method="excess")
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return -Rp.mean() - z * Rp.std(ddof=1)
+        else:
+            mu = R.mean()
+            m2 = centered_moment(R, 2)
+            return -mu - z * np.sqrt(m2)
 
-    # Cornish-Fisher expansion for the z-score
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    mu = R.mean().values
+    location = float(w.T @ mu)
+    sigma = R.cov(ddof=1).values * (len(R) - 1) / len(R)
+    pm2 = float(w.T @ sigma @ w)
+    VaR = -location - z * np.sqrt(pm2)
+
+    dpm2 = 2.0 * sigma @ w
+    derVaR = -mu - z * (0.5 * dpm2) / np.sqrt(pm2)
+    contrib = w * derVaR
+    pct_contrib = contrib / VaR
+
+    if portfolio_method == "marginal":
+        return pd.Series(derVaR, index=R.columns, name="marginal_gVaR")
+    else:
+        return {
+            "gVaR": VaR,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
+
+
+def var_modified(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+    M3: np.ndarray | None = None,
+    M4: np.ndarray | None = None,
+) -> Any:
+    r"""
+    Calculate Modified (Cornish-Fisher) Value at Risk (VaR), with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
+    alpha = 1 - p if p >= 0.5 else p
+    z = norm.ppf(alpha)
+
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return _var_modified_single_series(Rp, p)
+        else:
+            def _calc(s: pd.Series) -> float:
+                s = s.dropna()
+                if len(s) == 0:
+                    return np.nan
+                mu = s.mean()
+                m2 = centered_moment(s, 2)
+                skew = skewness(s, method="moment")
+                exkurt = kurtosis(s, method="excess")
+                h = (
+                    z
+                    + (z**2 - 1.0) * skew / 6.0
+                    + (z**3 - 3.0 * z) * exkurt / 24.0
+                    - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
+                )
+                return -mu - h * np.sqrt(m2)
+            return R.apply(_calc) if isinstance(R, pd.DataFrame) else _calc(R)
+
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    mu = R.mean().values
+    location = float(w.T @ mu)
+    T = len(R)
+
+    if M3 is None and M4 is None:
+        Xc = (R - R.mean()).values
+        y = Xc @ w
+        pm2 = float(np.mean(y**2))
+        pm3 = float(np.mean(y**3))
+        pm4 = float(np.mean(y**4))
+
+        dpm2 = 2.0 * (Xc.T @ y) / T
+        dpm3 = 3.0 * (Xc.T @ (y**2)) / T
+        dpm4 = 4.0 * (Xc.T @ (y**3)) / T
+    else:
+        sigma = R.cov(ddof=1).values * (T - 1) / T
+        pm2 = float(w.T @ sigma @ w)
+        _M3 = M3 if M3 is not None else co_skewness_matrix(R, unbiased=False)
+        _M4 = M4 if M4 is not None else co_kurtosis_matrix(R)
+
+        pm3 = float(w.T @ _M3 @ np.kron(w, w))
+        pm4 = float(w.T @ _M4 @ np.kron(w, np.kron(w, w)))
+        dpm2 = 2.0 * sigma @ w
+        dpm3 = 3.0 * _M3 @ np.kron(w, w)
+        dpm4 = 4.0 * _M4 @ np.kron(w, np.kron(w, w))
+
+    skew = pm3 / (pm2 ** 1.5) if pm2 > 0 else 0.0
+    exkurt = pm4 / (pm2 ** 2) - 3.0 if pm2 > 0 else 0.0
+
+    derskew = (2.0 * (pm2 ** 1.5) * dpm3 - 3.0 * pm3 * np.sqrt(pm2) * dpm2) / (2.0 * pm2**3)
+    derexkurt = (pm2 * dpm4 - 2.0 * pm4 * dpm2) / pm2**3
+
     h = (
         z
-        + (1 / 6.0) * (z**2 - 1.0) * skew
-        + (1 / 24.0) * (z**3 - 3.0 * z) * exkurt
-        - (1 / 36.0) * (2.0 * z**3 - 5.0 * z) * skew**2
+        + (z**2 - 1.0) * skew / 6.0
+        + (z**3 - 3.0 * z) * exkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
     )
+    MVaR = -location - h * np.sqrt(pm2)
 
+    derh = (
+        (z**2 - 1.0) * derskew / 6.0
+        + (z**3 - 3.0 * z) * derexkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew * derskew / 18.0
+    )
+    derMVaR = -mu - h * dpm2 / (2.0 * np.sqrt(pm2)) - np.sqrt(pm2) * derh
+
+    contrib = w * derMVaR
+    pct_contrib = contrib / MVaR
+
+    if portfolio_method == "marginal":
+        return pd.Series(derMVaR, index=R.columns, name="marginal_MVaR")
+    else:
+        return {
+            "MVaR": MVaR,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
+
+
+def _var_modified_single_series(s: pd.Series, p: float) -> float:
+    s = s.dropna()
+    if len(s) == 0:
+        return np.nan
+    alpha = 1 - p if p >= 0.5 else p
+    z = norm.ppf(alpha)
+    mu = s.mean()
+    m2 = centered_moment(s, 2)
+    skew = skewness(s, method="moment")
+    exkurt = kurtosis(s, method="excess")
+    h = (
+        z
+        + (z**2 - 1.0) * skew / 6.0
+        + (z**3 - 3.0 * z) * exkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
+    )
     return -mu - h * np.sqrt(m2)
 
 
-def es_historical(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
+def es_historical(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+) -> Any:
     r"""
-    Calculate Historical Expected Shortfall (Conditional VaR).
-
-    Calculates the average of the worst :math:`(1-p)`% of returns.
-
-    Formula:
-
-    .. math::
-
-        ES_{hist} = -E[R | R < -VaR_{hist}]
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level. Default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Historical Expected Shortfall.
-    r"""
+    Calculate Historical Expected Shortfall (Conditional VaR), with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
     alpha = 1 - p if p >= 0.5 else p
 
-    def _calc(s: pd.Series, a: float) -> float:
-        s = s.dropna()
-        if len(s) == 0:
-            return np.nan
-        q = np.percentile(s, a * 100)
-        subset = s[s < q]
-        if len(subset) == 0:
-            return -q  # PA's fallback: if no values < VaR, ES = VaR
-        return -subset.mean()
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return _es_historical_single_series(Rp, p)
+        else:
+            def _calc(s: pd.Series) -> float:
+                s = s.dropna()
+                if len(s) == 0:
+                    return np.nan
+                q = np.percentile(s, alpha * 100)
+                subset = s[s < q]
+                return -subset.mean() if len(subset) > 0 else -q
+            return R.apply(_calc) if isinstance(R, pd.DataFrame) else _calc(R)
 
-    if isinstance(R, pd.DataFrame):
-        return R.apply(_calc, a=alpha)
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    Rp = R @ w
+    hvar = -np.percentile(Rp.dropna(), alpha * 100)
+    exceed_mask = Rp <= -hvar
+    if not exceed_mask.any():
+        exceed_mask = pd.Series(True, index=Rp.index)
+
+    c_exceed = exceed_mask.sum()
+    r_exceed = Rp[exceed_mask].sum()
+    realized_contrib = (R[exceed_mask] * w).sum().values
+
+    contrib = -realized_contrib / c_exceed
+    total_ES = -r_exceed / c_exceed
+    pct_contrib = contrib / total_ES if total_ES != 0 else np.zeros_like(contrib)
+
+    if portfolio_method == "marginal":
+        return pd.Series(contrib / w, index=R.columns, name="marginal_hES")
     else:
-        return _calc(R, alpha)
+        return {
+            "hES": total_ES,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
 
 
-def es_gaussian(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
-    r"""
-    Calculate Gaussian Expected Shortfall (Conditional VaR).
-
-    Estimates Expected Shortfall assuming a normal distribution.
-
-    Formula:
-
-    .. math::
-
-        ES_{gaus} = -\\mu + \\sigma \frac{\\phi(z_\alpha)}{1-p}
-    where :math:`\\phi` is the standard normal PDF.
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level. Default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Gaussian Expected Shortfall.
-    r"""
+def _es_historical_single_series(s: pd.Series, p: float) -> float:
+    s = s.dropna()
+    if len(s) == 0:
+        return np.nan
     alpha = 1 - p if p >= 0.5 else p
-    mu = R.mean()
-    m2 = centered_moment(R, 2)
-    z = norm.ppf(alpha)
-    return -mu + norm.pdf(z) * np.sqrt(m2) / alpha
+    q = np.percentile(s, alpha * 100)
+    subset = s[s < q]
+    return -subset.mean() if len(subset) > 0 else -q
 
 
-def es_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Series:
+def es_gaussian(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+) -> Any:
     r"""
-    Calculate Modified (Cornish-Fisher) Expected Shortfall.
-
-    Adjusts Expected Shortfall for skewness and kurtosis.
-
-    Formula:
-    Calculated via the Cornish-Fisher expansion applied to the expected shortfall integral.
-
-    Parameters
-    ----------
-    R : pd.Series or pd.DataFrame
-        Asset returns.
-    p : float, optional
-        Confidence level. Default is 0.95.
-
-    Returns
-    -------
-    float or pd.Series
-        Modified Expected Shortfall.
-    r"""
+    Calculate Gaussian Expected Shortfall (Conditional VaR), with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
     alpha = 1 - p if p >= 0.5 else p
     z = norm.ppf(alpha)
 
-    mu = R.mean()
-    m2 = centered_moment(R, 2)
-    skew = skewness(R, method="moment")
-    exkurt = kurtosis(R, method="excess")
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return -Rp.mean() + norm.pdf(z) * Rp.std(ddof=1) / alpha
+        else:
+            mu = R.mean()
+            m2 = centered_moment(R, 2)
+            return -mu + norm.pdf(z) * np.sqrt(m2) / alpha
 
-    # h as used in MES calculation in R code
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    mu = R.mean().values
+    location = float(w.T @ mu)
+    sigma = R.cov(ddof=1).values * (len(R) - 1) / len(R)
+    pm2 = float(w.T @ sigma @ w)
+    ES = -location + norm.pdf(z) * np.sqrt(pm2) / alpha
+
+    dpm2 = 2.0 * sigma @ w
+    derES = -mu + (1.0 / alpha) * norm.pdf(z) * (0.5 * dpm2) / np.sqrt(pm2)
+    contrib = w * derES
+    pct_contrib = contrib / ES
+
+    if portfolio_method == "marginal":
+        return pd.Series(derES, index=R.columns, name="marginal_gES")
+    else:
+        return {
+            "gES": ES,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
+
+
+def es_modified(
+    R: pd.Series | pd.DataFrame,
+    p: float = 0.95,
+    weights: np.ndarray | list | pd.Series | None = None,
+    portfolio_method: str = "single",
+    M3: np.ndarray | None = None,
+    M4: np.ndarray | None = None,
+) -> Any:
+    r"""
+    Calculate Modified (Cornish-Fisher) Expected Shortfall, with optional portfolio decomposition.
+    """
+    w = _verify_portfolio_args(R, weights, portfolio_method)
+    alpha = 1 - p if p >= 0.5 else p
+    z = norm.ppf(alpha)
+
+    if weights is None or portfolio_method == "single":
+        if weights is not None and isinstance(R, pd.DataFrame):
+            Rp = R @ w
+            return _es_modified_single_series(Rp, p)
+        else:
+            def _calc(s: pd.Series) -> float:
+                s = s.dropna()
+                if len(s) == 0:
+                    return np.nan
+                mu = s.mean()
+                m2 = centered_moment(s, 2)
+                skew = skewness(s, method="moment")
+                exkurt = kurtosis(s, method="excess")
+                h = (
+                    z
+                    + (z**2 - 1.0) * skew / 6.0
+                    + (z**3 - 3.0 * z) * exkurt / 24.0
+                    - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
+                )
+                E = (
+                    norm.pdf(h)
+                    * (
+                        1.0
+                        + (h**3) * skew / 6.0
+                        + (h**6 - 9.0 * h**4 + 9.0 * h**2 + 3.0) * skew**2 / 72.0
+                        + (h**4 - 2.0 * h**2 - 1.0) * exkurt / 24.0
+                    )
+                    / alpha
+                )
+                return -mu + np.sqrt(m2) * E
+            return R.apply(_calc) if isinstance(R, pd.DataFrame) else _calc(R)
+
+    if not isinstance(R, pd.DataFrame):
+        raise ValueError("R must be a DataFrame for portfolio risk decomposition.")
+
+    mu = R.mean().values
+    location = float(w.T @ mu)
+    T = len(R)
+
+    if M3 is None and M4 is None:
+        Xc = (R - R.mean()).values
+        y = Xc @ w
+        pm2 = float(np.mean(y**2))
+        pm3 = float(np.mean(y**3))
+        pm4 = float(np.mean(y**4))
+
+        dpm2 = 2.0 * (Xc.T @ y) / T
+        dpm3 = 3.0 * (Xc.T @ (y**2)) / T
+        dpm4 = 4.0 * (Xc.T @ (y**3)) / T
+    else:
+        sigma = R.cov(ddof=1).values * (T - 1) / T
+        pm2 = float(w.T @ sigma @ w)
+        _M3 = M3 if M3 is not None else co_skewness_matrix(R, unbiased=False)
+        _M4 = M4 if M4 is not None else co_kurtosis_matrix(R)
+
+        pm3 = float(w.T @ _M3 @ np.kron(w, w))
+        pm4 = float(w.T @ _M4 @ np.kron(w, np.kron(w, w)))
+        dpm2 = 2.0 * sigma @ w
+        dpm3 = 3.0 * _M3 @ np.kron(w, w)
+        dpm4 = 4.0 * _M4 @ np.kron(w, np.kron(w, w))
+
+    skew = pm3 / (pm2 ** 1.5) if pm2 > 0 else 0.0
+    exkurt = pm4 / (pm2 ** 2) - 3.0 if pm2 > 0 else 0.0
+
+    derskew = (2.0 * (pm2 ** 1.5) * dpm3 - 3.0 * pm3 * np.sqrt(pm2) * dpm2) / (2.0 * pm2**3)
+    derexkurt = (pm2 * dpm4 - 2.0 * pm4 * dpm2) / pm2**3
+
     h = (
         z
-        + (1 / 6.0) * (z**2 - 1.0) * skew
-        + (1 / 24.0) * (z**3 - 3.0 * z) * exkurt
-        - (1 / 36.0) * (2.0 * z**3 - 5.0 * z) * skew**2
+        + (z**2 - 1.0) * skew / 6.0
+        + (z**3 - 3.0 * z) * exkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
+    )
+    derh = (
+        (z**2 - 1.0) * derskew / 6.0
+        + (z**3 - 3.0 * z) * derexkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew * derskew / 18.0
     )
 
-    # E as defined in ES.CornishFisher in R code
     E = (
         norm.pdf(h)
         * (
@@ -241,8 +449,69 @@ def es_modified(R: pd.Series | pd.DataFrame, p: float = 0.95) -> float | pd.Seri
             + (h**6 - 9.0 * h**4 + 9.0 * h**2 + 3.0) * (skew**2) / 72.0
             + (h**4 - 2.0 * h**2 - 1.0) * exkurt / 24.0
         )
-    ) / alpha
+        / alpha
+    )
+    MES = -location + np.sqrt(pm2) * E
 
+    derMES = (
+        -mu
+        + E * dpm2 / (2.0 * np.sqrt(pm2))
+        - np.sqrt(pm2) * E * h * derh
+        + norm.pdf(h)
+        * np.sqrt(pm2)
+        / alpha
+        * (
+            derh
+            * (
+                h**2 * skew / 2.0
+                + (6.0 * h**5 - 36.0 * h**3 + 18.0 * h) * (skew**2) / 72.0
+                + (4.0 * h**3 - 4.0 * h) * exkurt / 24.0
+            )
+            + h**3 * derskew / 6.0
+            + (h**6 - 9.0 * h**4 + 9.0 * h**2 + 3.0) * skew * derskew / 36.0
+            + (h**4 - 2.0 * h**2 - 1.0) * derexkurt / 24.0
+        )
+    )
+
+    contrib = w * derMES
+    pct_contrib = contrib / MES
+
+    if portfolio_method == "marginal":
+        return pd.Series(derMES, index=R.columns, name="marginal_MES")
+    else:
+        return {
+            "MES": MES,
+            "contribution": pd.Series(contrib, index=R.columns),
+            "pct_contrib": pd.Series(pct_contrib, index=R.columns),
+        }
+
+
+def _es_modified_single_series(s: pd.Series, p: float) -> float:
+    s = s.dropna()
+    if len(s) == 0:
+        return np.nan
+    alpha = 1 - p if p >= 0.5 else p
+    z = norm.ppf(alpha)
+    mu = s.mean()
+    m2 = centered_moment(s, 2)
+    skew = skewness(s, method="moment")
+    exkurt = kurtosis(s, method="excess")
+    h = (
+        z
+        + (z**2 - 1.0) * skew / 6.0
+        + (z**3 - 3.0 * z) * exkurt / 24.0
+        - (2.0 * z**3 - 5.0 * z) * skew**2 / 36.0
+    )
+    E = (
+        norm.pdf(h)
+        * (
+            1.0
+            + (h**3) * skew / 6.0
+            + (h**6 - 9.0 * h**4 + 9.0 * h**2 + 3.0) * skew**2 / 72.0
+            + (h**4 - 2.0 * h**2 - 1.0) * exkurt / 24.0
+        )
+        / alpha
+    )
     return -mu + np.sqrt(m2) * E
 
 
