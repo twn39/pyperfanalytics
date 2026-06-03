@@ -24,6 +24,8 @@ from pyperfanalytics.core import (  # noqa: E402 F401
     semi_deviation,
     semi_variance,
     std_dev_annualized,
+    sd_multiperiod,
+    sd_annualized,
     upside_frequency,
     upside_potential,
     upside_risk,
@@ -2493,3 +2495,239 @@ def capm_dynamic(
             return results_map[Rb_df.columns[0]]
 
         return results_map
+
+
+# ---------------------------------------------------------------------------
+# CAPM and SFM Auxiliary Metrics
+# ---------------------------------------------------------------------------
+
+
+def capm_cml_slope(
+    Rb: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0
+) -> float | pd.Series | pd.DataFrame:
+    r"""
+    Calculate the slope of the Capital Market Line (CML).
+    The slope of the CML is the Sharpe Ratio of the benchmark portfolio.
+    """
+    return sharpe_ratio(Rb, Rf=Rf, FUN="StdDev")
+
+
+sfm_cml_slope = capm_cml_slope
+
+
+def capm_cml(
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
+) -> float | pd.Series | pd.DataFrame:
+    r"""
+    Calculate Capital Market Line (CML) expected return.
+
+    Formula:
+    CML_a = Rf + CML_Slope * std_dev(Ra)
+    """
+    # Fetch periodic Sharpe Ratio slope of Rb
+    slope = capm_cml_slope(Rb, Rf=Rf)
+
+    # Standardize Rf to its periodic mean
+    if isinstance(Rf, (pd.Series, pd.DataFrame)):
+        rf_mean = Rf.mean()
+    else:
+        rf_mean = Rf
+
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+
+    results = []
+    for rb_col in rb_cols:
+        col_results = []
+        for ra_col in ra_cols:
+            # Align Ra and Rb
+            merged = pd.concat([ra_df[ra_col], rb_df[rb_col]], axis=1).dropna()
+            if merged.empty:
+                col_results.append(np.nan)
+                continue
+
+            a_std = merged.iloc[:, 0].std(ddof=1)
+
+            # Retrieve slope for this specific Rb column
+            if isinstance(slope, pd.DataFrame):
+                sl = slope.loc[rb_col, ra_col] if ra_col in slope.columns else slope.iloc[0, 0]
+            elif isinstance(slope, pd.Series):
+                sl = slope[rb_col] if rb_col in slope.index else slope.iloc[0]
+            else:
+                sl = slope
+
+            # Retain periodic terms consistently
+            # CML = mean(Rf) + CML_Slope * std_dev(Ra)
+            cml_val = rf_mean + sl * a_std
+            col_results.append(cml_val)
+        results.append(col_results)
+
+    res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
+
+    if len(ra_cols) == 1 and len(rb_cols) == 1:
+        return res_df.iloc[0, 0]
+    elif len(rb_cols) == 1:
+        return res_df.iloc[0]
+    else:
+        return res_df
+
+
+sfm_cml = capm_cml
+
+
+def capm_risk_premium(
+    Ra: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0
+) -> float | pd.Series:
+    r"""
+    Calculate the Risk Premium of an asset (mean excess return).
+    """
+    xRa = return_excess(Ra, Rf)
+    if isinstance(xRa, pd.DataFrame):
+        return xRa.mean()
+    else:
+        return xRa.mean()
+
+
+sfm_risk_premium = capm_risk_premium
+
+
+def capm_sml_slope(
+    Rb: pd.Series | pd.DataFrame, Rf: float | pd.Series | pd.DataFrame = 0.0
+) -> float | pd.Series:
+    r"""
+    Calculate the slope of the Security Market Line (SML).
+    """
+    rp = capm_risk_premium(Rb, Rf)
+    return 1.0 / rp
+
+
+sfm_sml_slope = capm_sml_slope
+
+
+def capm_epsilon(
+    Ra: pd.Series | pd.DataFrame,
+    Rb: pd.Series | pd.DataFrame,
+    Rf: float | pd.Series | pd.DataFrame = 0.0,
+    scale: int | None = None,
+) -> float | pd.Series | pd.DataFrame:
+    r"""
+    Calculate consistent annualized Regression Epsilon.
+
+    Formula:
+    epsilon = Rp_ann - ( Rf_ann + alpha_ann + beta * (Rpb_ann - Rf_ann) )
+    """
+    from pyperfanalytics.risk import capm_beta
+
+    if scale is None:
+        scale = _get_scale(Ra)
+
+    # Standardize inputs
+    if isinstance(Ra, pd.Series):
+        ra_df = Ra.to_frame()
+    else:
+        ra_df = Ra
+
+    if isinstance(Rb, pd.Series):
+        rb_df = Rb.to_frame()
+    else:
+        rb_df = Rb
+
+    ra_cols = ra_df.columns
+    rb_cols = rb_df.columns
+
+    results = []
+    for rb_col in rb_cols:
+        col_results = []
+        for ra_col in ra_cols:
+            a = ra_df[ra_col]
+            b = rb_df[rb_col]
+
+            # Match R's strict NA handling
+            if a.isna().any() or b.isna().any():
+                col_results.append(np.nan)
+                continue
+
+            # Align
+            merged = pd.concat([a, b], axis=1).dropna()
+            if merged.empty:
+                col_results.append(np.nan)
+                continue
+
+            a = merged.iloc[:, 0]
+            b = merged.iloc[:, 1]
+
+            # Annualized returns
+            rp = (1 + a).prod() ** (scale / len(a)) - 1
+            rpb = (1 + b).prod() ** (scale / len(b)) - 1
+
+            # Alpha and Beta (periodic)
+            beta = capm_beta(a, b, Rf=Rf)
+            alpha_periodic = capm_alpha(a, b, Rf=Rf)
+
+            # Annualize Rf and alpha
+            if isinstance(Rf, (pd.Series, pd.DataFrame)):
+                rf_s = Rf.loc[a.index].dropna()
+                if len(rf_s) > 0:
+                    rf_val_periodic = rf_s.mean()
+                else:
+                    rf_val_periodic = 0.0
+            else:
+                rf_val_periodic = float(Rf)
+
+            rf_ann = (1 + rf_val_periodic) ** scale - 1
+            alpha_ann = (1 + alpha_periodic) ** scale - 1
+
+            epsilon = rp - (rf_ann + alpha_ann + beta * (rpb - rf_ann))
+            col_results.append(epsilon)
+        results.append(col_results)
+
+    res_df = pd.DataFrame(results, index=rb_cols, columns=ra_cols)
+
+    if len(ra_cols) == 1 and len(rb_cols) == 1:
+        return res_df.iloc[0, 0]
+    elif len(rb_cols) == 1:
+        return res_df.iloc[0]
+    else:
+        return res_df
+
+
+sfm_epsilon = capm_epsilon
+
+
+# ---------------------------------------------------------------------------
+# Period Contribution Wrappers
+# ---------------------------------------------------------------------------
+
+
+def to_weekly_contributions(Contributions: pd.Series | pd.DataFrame) -> pd.DataFrame:
+    r"""Aggregate contributions to weekly frequency."""
+    return to_period_contributions(Contributions, period="weeks")
+
+
+def to_monthly_contributions(Contributions: pd.Series | pd.DataFrame) -> pd.DataFrame:
+    r"""Aggregate contributions to monthly frequency."""
+    return to_period_contributions(Contributions, period="months")
+
+
+def to_quarterly_contributions(Contributions: pd.Series | pd.DataFrame) -> pd.DataFrame:
+    r"""Aggregate contributions to quarterly frequency."""
+    return to_period_contributions(Contributions, period="quarters")
+
+
+def to_yearly_contributions(Contributions: pd.Series | pd.DataFrame) -> pd.DataFrame:
+    r"""Aggregate contributions to yearly frequency."""
+    return to_period_contributions(Contributions, period="years")
+

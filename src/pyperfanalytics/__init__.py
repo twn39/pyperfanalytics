@@ -87,8 +87,14 @@ from pyperfanalytics.returns import (
     sharpe_ratio,
     sortino_ratio,
     std_dev_annualized,
+    sd_multiperiod,
+    sd_annualized,
     sterling_ratio,
     to_period_contributions,
+    to_weekly_contributions,
+    to_monthly_contributions,
+    to_quarterly_contributions,
+    to_yearly_contributions,
     treynor_ratio,
     up_capture,
     up_down_ratios,
@@ -97,6 +103,16 @@ from pyperfanalytics.returns import (
     upside_potential_ratio,
     upside_risk,
     volatility_skewness,
+    capm_cml_slope,
+    capm_cml,
+    capm_risk_premium,
+    capm_sml_slope,
+    capm_epsilon,
+    sfm_cml_slope,
+    sfm_cml,
+    sfm_risk_premium,
+    sfm_sml_slope,
+    sfm_epsilon,
 )
 from pyperfanalytics.risk import (
     capm_beta,
@@ -147,6 +163,8 @@ from pyperfanalytics.tables import (
     table_stats,
     table_up_down_ratios,
     table_variability,
+    table_sfm,
+    table_trailing_periods,
 )
 from pyperfanalytics.utils import (
     beta_co_kurtosis,
@@ -165,6 +183,12 @@ from pyperfanalytics.utils import (
     portm4,
     skewness,
 )
+from pyperfanalytics.data import (
+    load_managers,
+    load_edhec,
+    load_portfolio_bacon,
+)
+
 
 try:
     from importlib.metadata import PackageNotFoundError as _PNF
@@ -329,4 +353,25 @@ __all__ = [
     "portm3",
     "portm4",
     "skewness",
+    "sd_multiperiod",
+    "sd_annualized",
+    "to_weekly_contributions",
+    "to_monthly_contributions",
+    "to_quarterly_contributions",
+    "to_yearly_contributions",
+    "capm_cml_slope",
+    "capm_cml",
+    "capm_risk_premium",
+    "capm_sml_slope",
+    "capm_epsilon",
+    "sfm_cml_slope",
+    "sfm_cml",
+    "sfm_risk_premium",
+    "sfm_sml_slope",
+    "sfm_epsilon",
+    "table_sfm",
+    "table_trailing_periods",
+    "load_managers",
+    "load_edhec",
+    "load_portfolio_bacon",
 ]

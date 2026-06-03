@@ -1453,3 +1453,8 @@ def table_rolling_periods(
 
 # Alias for compatibility with implementation plan
 table_monthly_returns = table_stats
+
+# Additional Aliases
+table_sfm = table_capm
+table_trailing_periods = table_rolling_periods
+

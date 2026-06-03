@@ -201,12 +201,17 @@ def return_cumulative(R: pd.Series | pd.DataFrame, geometric: bool = True) -> fl
 # ---------------------------------------------------------------------------
 
 
-def std_dev_annualized(R: pd.Series | pd.DataFrame, scale: int | None = None) -> float | pd.Series:
+def std_dev_annualized(
+    R: pd.Series | pd.DataFrame,
+    scale: int | None = None,
+    sample_method: str = "unbiased",
+) -> float | pd.Series:
     r"""
     Calculate annualized standard deviation.
 
     Uses a sample standard deviation (``ddof=1``) to match R's ``sd()``
-    default, then multiplies by :math:`\sqrt{scale}`.
+    default (with ``sample_method="unbiased"``), then multiplies by :math:`\sqrt{scale}`.
+    If ``sample_method="ML"``, maximum likelihood standard deviation (``ddof=0``) is used.
 
     Parameters
     ----------
@@ -214,18 +219,27 @@ def std_dev_annualized(R: pd.Series | pd.DataFrame, scale: int | None = None) ->
         Asset returns.
     scale : int, optional
         Periods per year.
+    sample_method : str, optional
+        Standard deviation estimation method: ``"unbiased"`` (default, ddof=1) or ``"ML"`` (ddof=0).
 
     Returns
     -------
     float or pd.Series
         Annualized standard deviation.
-    r"""
+    """
     if scale is None:
         scale = _get_scale(R)
+    ddof = 0 if sample_method == "ML" else 1
     if isinstance(R, pd.DataFrame):
-        return R.std(ddof=1) * np.sqrt(scale)
+        return R.std(ddof=ddof) * np.sqrt(scale)
     else:
-        return R.dropna().std(ddof=1) * np.sqrt(scale)
+        return R.dropna().std(ddof=ddof) * np.sqrt(scale)
+
+
+# Aliases
+sd_multiperiod = std_dev_annualized
+sd_annualized = std_dev_annualized
+
 
 
 # ---------------------------------------------------------------------------
